@@ -28,7 +28,8 @@
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100">
-    <div id="root"></div> <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+    <div id="root"></div>
+    <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
 
@@ -80,8 +81,9 @@
 
         const getDayAbbreviation = (dateString) => {
             if (!dateString) return ''; // Handle cases where dateString might be empty
+            const date = new Date(dateString + 'T00:00:00'); // Add time to avoid timezone issues with date-only strings
+            if (isNaN(date.getTime())) return ''; // Check if date is valid
             const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-            const date = new Date(dateString);
             return days[date.getUTCDay()];
         };
 
@@ -156,7 +158,7 @@
                 let totalBankrollINR = 0;
                 let totalBuyInsINR = 0;
                 let totalCashoutsINR = 0;
-                let totalTournaments = completedTournaments.length;
+                let totalTournaments = completedTournaments.length; // Corrected: only count completed tournaments for average buy-in and total tournaments
 
                 // Calculate total bankroll in INR
                 pokerSites.forEach(site => {
@@ -315,11 +317,30 @@
             
             // Ensure default pokerSite is set based on available sites
             const initialFormState = {
-                date: new Date().toISOString().split('T')[0], time: '12:00', pokerSite: pokerSites[0]?.name || '', 
-                buyIn: '', buyInDiscount: 0, gameType: gameTypes[0] || '', gameFormat: gameFormats[0] || '', 
-                gameStructure: gameStructures[0] || '', gtd: ''
+                date: new Date().toISOString().split('T')[0],
+                time: '12:00',
+                // Ensure pokerSite defaults to the first available or empty if no sites
+                pokerSite: pokerSites.length > 0 ? pokerSites[0].name : '', 
+                buyIn: '', // Keep as string for input, parse to number on submit
+                buyInDiscount: '', // Keep as string for input, parse to number on submit
+                gameType: gameTypes.length > 0 ? gameTypes[0] : '',
+                gameFormat: gameFormats.length > 0 ? gameFormats[0] : '', 
+                gameStructure: gameStructures.length > 0 ? gameStructures[0] : '', 
+                gtd: '' // Keep as string for input, parse to number on submit
             };
             const [newTournament, setNewTournament] = useState(initialFormState);
+
+            // Update initial form state if pokerSites changes (e.g., loaded from localStorage)
+            useEffect(() => {
+                setNewTournament(prev => ({
+                    ...prev,
+                    pokerSite: pokerSites.length > 0 ? pokerSites[0].name : '',
+                    gameType: gameTypes.length > 0 ? gameTypes[0] : '',
+                    gameFormat: gameFormats.length > 0 ? gameFormats[0] : '',
+                    gameStructure: gameStructures.length > 0 ? gameStructures[0] : '',
+                }));
+            }, [pokerSites, gameTypes, gameFormats, gameStructures]);
+
 
             // Sort by date and time by default
             const { items: sortedTournaments, requestSort, sortConfig } = useSortableData(tournaments, { key: 'id', direction: 'descending' });
@@ -337,6 +358,11 @@
                     return;
                 }
 
+                // Ensure numeric values are parsed correctly, defaulting to 0 for empty strings
+                const parsedBuyIn = parseFloat(newTournament.buyIn) || 0;
+                const parsedBuyInDiscount = parseFloat(newTournament.buyInDiscount) || 0;
+                const parsedGtd = parseFloat(newTournament.gtd) || 0;
+
                 const currency = getCurrencyForSite(newTournament.pokerSite, pokerSites);
                 const symbol = CURRENCY_SYMBOLS[currency] || '$';
                 const day = getDayAbbreviation(newTournament.date);
@@ -344,10 +370,10 @@
                 const tournamentToAdd = {
                     ...newTournament,
                     id: new Date(`${newTournament.date}T${newTournament.time}`).getTime(), // Use combined date and time for unique ID
-                    buyIn: parseFloat(newTournament.buyIn),
-                    buyInDiscount: parseFloat(newTournament.buyInDiscount || 0), // Ensure discount is number
-                    gtd: parseFloat(newTournament.gtd),
-                    name: `${day}-${newTournament.pokerSite}-${symbol}${newTournament.buyIn}`,
+                    buyIn: parsedBuyIn,
+                    buyInDiscount: parsedBuyInDiscount, 
+                    gtd: parsedGtd,
+                    name: `${day}-${newTournament.pokerSite}-${symbol}${parsedBuyIn}`,
                     // Initialize optional fields to 0 or null if not provided
                     entries: null, 
                     addon: 0, 
@@ -467,7 +493,8 @@
                         <div>
                             <label className="block text-sm font-medium text-gray-400">Poker Site</label>
                             <select name="pokerSite" value={newTournament.pokerSite} onChange={handleInputChange} required className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2">
-                                {pokerSites.length === 0 && <option value="">Add sites in Manage</option>}
+                                {/* Added a default disabled option if no sites are available */}
+                                {pokerSites.length === 0 ? <option value="" disabled>Add sites in Manage</option> : null}
                                 {pokerSites.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                             </select>
                         </div>
@@ -486,26 +513,26 @@
                         <div>
                             <label className="block text-sm font-medium text-gray-400">Game Type</label>
                             <select name="gameType" value={newTournament.gameType} onChange={handleInputChange} className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2">
-                                {gameTypes.length === 0 && <option value="">Add types in Manage</option>}
+                                {gameTypes.length === 0 ? <option value="" disabled>Add types in Manage</option> : null}
                                 {gameTypes.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-400">Game Format</label>
                             <select name="gameFormat" value={newTournament.gameFormat} onChange={handleInputChange} className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2">
-                                {gameFormats.length === 0 && <option value="">Add formats in Manage</option>}
+                                {gameFormats.length === 0 ? <option value="" disabled>Add formats in Manage</option> : null}
                                 {gameFormats.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-400">Game Structure</label>
                             <select name="gameStructure" value={newTournament.gameStructure} onChange={handleInputChange} className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2">
-                                {gameStructures.length === 0 && <option value="">Add structures in Manage</option>}
+                                {gameStructures.length === 0 ? <option value="" disabled>Add structures in Manage</option> : null}
                                 {gameStructures.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                             </select>
                         </div>
                         <div className="col-span-full flex justify-end">
-                            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Add Tournament</button>
+                            <button type="submit" disabled={pokerSites.length === 0 || newTournament.buyIn === '' || newTournament.gtd === ''} className={`bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ${pokerSites.length === 0 || newTournament.buyIn === '' || newTournament.gtd === '' ? 'disabled-button' : ''}`}>Add Tournament</button>
                         </div>
                     </form>
 
@@ -609,7 +636,7 @@
                                 <input
                                     type="number"
                                     name="addon"
-                                    value={editingTournament?.addon || 0}
+                                    value={editingTournament?.addon || ''} // Changed to '' for better input feel
                                     onChange={handleResultChange}
                                     step="0.01"
                                     min="0"
@@ -621,7 +648,7 @@
                                 <input
                                     type="number"
                                     name="bountyCashout"
-                                    value={editingTournament?.bountyCashout || 0}
+                                    value={editingTournament?.bountyCashout || ''} // Changed to ''
                                     onChange={handleResultChange}
                                     step="0.01"
                                     min="0"
@@ -633,7 +660,7 @@
                                 <input
                                     type="number"
                                     name="itmCashout"
-                                    value={editingTournament?.itmCashout || 0}
+                                    value={editingTournament?.itmCashout || ''} // Changed to ''
                                     onChange={handleResultChange}
                                     step="0.01"
                                     min="0"
@@ -645,7 +672,7 @@
                                 <input
                                     type="number"
                                     name="tournamentMoneyCashout"
-                                    value={editingTournament?.tournamentMoneyCashout || 0}
+                                    value={editingTournament?.tournamentMoneyCashout || ''} // Changed to ''
                                     onChange={handleResultChange}
                                     step="0.01"
                                     min="0"
@@ -742,8 +769,8 @@
         function Transactions({ transactions, setTransactions, pokerSites }) {
             const initialFormState = {
                 date: new Date().toISOString().split('T')[0],
-                pokerSite: pokerSites[0]?.name || '', // Default to first poker site
-                deposit: '',
+                pokerSite: pokerSites.length > 0 ? pokerSites[0].name : '', // Default to first poker site
+                deposit: '', // Changed to empty string for initial input
                 withdrawal: '',
                 tax: '',
                 tournamentMoney: '',
@@ -752,6 +779,14 @@
                 other: ''
             };
             const [newTransaction, setNewTransaction] = useState(initialFormState);
+
+            // Update initial form state if pokerSites changes
+            useEffect(() => {
+                setNewTransaction(prev => ({
+                    ...prev,
+                    pokerSite: pokerSites.length > 0 ? pokerSites[0].name : '',
+                }));
+            }, [pokerSites]);
 
             const handleInputChange = (e) => {
                 const { name, value } = e.target;
@@ -766,13 +801,14 @@
                     return;
                 }
 
-                const parsedDeposit = parseFloat(newTransaction.deposit || 0);
-                const parsedWithdrawal = parseFloat(newTransaction.withdrawal || 0);
-                const parsedTax = parseFloat(newTransaction.tax || 0);
-                const parsedTournamentMoney = parseFloat(newTransaction.tournamentMoney || 0);
-                const parsedInstantBonus = parseFloat(newTransaction.instantBonus || 0);
-                const parsedLockedBonus = parseFloat(newTransaction.lockedBonus || 0);
-                const parsedOther = parseFloat(newTransaction.other || 0);
+                // Parse values, defaulting to 0 for empty strings
+                const parsedDeposit = parseFloat(newTransaction.deposit) || 0;
+                const parsedWithdrawal = parseFloat(newTransaction.withdrawal) || 0;
+                const parsedTax = parseFloat(newTransaction.tax) || 0;
+                const parsedTournamentMoney = parseFloat(newTransaction.tournamentMoney) || 0;
+                const parsedInstantBonus = parseFloat(newTransaction.instantBonus) || 0;
+                const parsedLockedBonus = parseFloat(newTransaction.lockedBonus) || 0;
+                const parsedOther = parseFloat(newTransaction.other) || 0;
 
                 // Calculate new bankroll based on the transaction type and previous bankroll
                 // Get all transactions for the specific site, sort by date and then ID to get the latest bankroll
@@ -821,7 +857,7 @@
                         <div>
                             <label className="block text-sm font-medium text-gray-400">Poker Site</label>
                             <select name="pokerSite" value={newTransaction.pokerSite} onChange={handleInputChange} required className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2">
-                                {pokerSites.length === 0 && <option value="">Add sites in Manage</option>}
+                                {pokerSites.length === 0 ? <option value="" disabled>Add sites in Manage</option> : null}
                                 {pokerSites.map(site => <option key={site.id} value={site.name}>{site.name}</option>)}
                             </select>
                         </div>
@@ -833,7 +869,7 @@
                             </div>
                         ))}
                         <div className="col-span-full flex justify-end">
-                            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Add Transaction</button>
+                            <button type="submit" disabled={pokerSites.length === 0} className={`bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ${pokerSites.length === 0 ? 'disabled-button' : ''}`}>Add Transaction</button>
                         </div>
                     </form>
 
@@ -1088,9 +1124,11 @@
                 const [state, setState] = useState(() => {
                     try {
                         const item = window.localStorage.getItem(key);
-                        return item ? JSON.parse(item) : initialValue;
+                        // Ensure that if item is null or undefined, we return the initialValue
+                        return item !== null ? JSON.parse(item) : initialValue;
                     } catch (error) {
                         console.error(`Error reading localStorage key "${key}":`, error);
+                        // Return initial value on error to prevent breaking the app
                         return initialValue;
                     }
                 });
@@ -1159,8 +1197,6 @@
                             {renderView()}
                         </div>
                     </main>
-                    {/* The style block was already here, but moved into <head> for better practice. */}
-                    {/* No need for a separate <style jsx> block if using a single HTML file */}
                 </div>
             );
         }
