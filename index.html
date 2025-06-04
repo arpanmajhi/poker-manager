@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poker Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom scrollbar styles */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #4a5568; /* gray-700 */
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #60a5fa; /* blue-400 */
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #3b82f6; /* blue-500 */
+        }
+        .disabled-button {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+    <div id="root"></div> <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+
+    <script type="text/babel" data-presets="react">
+        const { useState, useEffect, useMemo, useCallback } = React;
+
+        // --- INITIAL DATA ---
+        const initialPokerSites = [
+            { id: 1, name: 'GGPoker', currency: 'USD' },
+            { id: 2, name: 'PokerBaazi', currency: 'INR' },
+            { id: 3, name: 'PokerStars', currency: 'EUR' },
+        ];
+
+        const initialGameTypes = ['NLH', 'PLO', 'PLO5', 'PLO6'];
+        const initialGameFormats = ['Regular', 'PKO', 'Bounty', 'Zoom'];
+        const initialGameStructures = ['Regular', 'Turbo', 'Hyper-Turbo', 'Deepstack'];
+
+        const initialTournaments = [
+            { id: 1622547800000, date: '2025-06-01', time: '14:00', pokerSite: 'PokerBaazi', buyIn: 5000, buyInDiscount: 0, gtd: 500000, name: 'SUN-PokerBaazi-₹5000', gameType: 'NLH', gameFormat: 'Regular', gameStructure: 'Deepstack', entries: 120, addon: 0, bountyCashout: 0, itmCashout: 15000, tournamentMoneyCashout: 0, finishPosition: 10 },
+            { id: 1622634200000, date: '2025-06-02', time: '15:30', pokerSite: 'GGPoker', buyIn: 50, buyInDiscount: 10, gtd: 10000, name: 'MON-GGPoker-$50', gameType: 'NLH', gameFormat: 'PKO', gameStructure: 'Turbo', entries: 250, addon: 0, bountyCashout: 150, itmCashout: 300, tournamentMoneyCashout: 0, finishPosition: 5 },
+            { id: 1622720600000, date: '2025-06-03', time: '18:00', pokerSite: 'PokerBaazi', buyIn: 2500, buyInDiscount: 0, gtd: 200000, name: 'TUE-PokerBaazi-₹2500', gameType: 'PLO5', gameFormat: 'Regular', gameStructure: 'Regular', entries: 80, addon: 0, bountyCashout: 0, itmCashout: 0, tournamentMoneyCashout: 0, finishPosition: 45 },
+            { id: 1622807000000, date: '2025-06-04', time: '20:00', pokerSite: 'PokerStars', buyIn: 20, buyInDiscount: 0, gtd: 5000, name: 'WED-PokerStars-€20', gameType: 'NLH', gameFormat: 'Zoom', gameStructure: 'Hyper-Turbo', entries: 300, addon: 0, bountyCashout: 0, itmCashout: 0, tournamentMoneyCashout: 0, finishPosition: 150 },
+            { id: 1622893400000, date: '2025-06-05', time: '12:00', pokerSite: 'GGPoker', buyIn: 100, buyInDiscount: 0, gtd: 20000, name: 'THU-GGPoker-$100', gameType: 'NLH', gameFormat: 'Bounty', gameStructure: 'Turbo' },
+        ];
+
+        const initialTransactions = [
+            { id: 1, date: '2025-06-01', pokerSite: 'PokerBaazi', deposit: 25000, withdrawal: 0, tax: 0, tournamentMoney: 0, instantBonus: 0, lockedBonus: 0, other: 0, newBankroll: 25000 },
+            { id: 2, date: '2025-06-01', pokerSite: 'GGPoker', deposit: 500, withdrawal: 0, tax: 0, tournamentMoney: 0, instantBonus: 0, lockedBonus: 0, other: 0, newBankroll: 500 },
+            { id: 3, date: '2025-06-01', pokerSite: 'PokerStars', deposit: 200, withdrawal: 0, tax: 0, tournamentMoney: 0, instantBonus: 0, lockedBonus: 0, other: 0, newBankroll: 200 },
+            { id: 4, date: '2025-06-03', pokerSite: 'GGPoker', deposit: 0, withdrawal: 0, tax: 0, tournamentMoney: 450, instantBonus: 0, lockedBonus: 0, other: 0, newBankroll: 950 },
+        ];
+
+        // --- HELPER FUNCTIONS AND CONSTANTS ---
+        const CURRENCY_SYMBOLS = { INR: '₹', USD: '$', EUR: '€', GBP: '£' };
+        const formatCurrency = (amount, currency) => {
+            // Ensure amount is a number and handle potential NaN or null/undefined
+            const numAmount = Number(amount);
+            if (isNaN(numAmount) || amount === null || amount === undefined) {
+                return `${CURRENCY_SYMBOLS[currency] || '$'}0.00`;
+            }
+            const symbol = CURRENCY_SYMBOLS[currency] || '$';
+            return `${symbol}${numAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        };
+
+        const getCurrencyForSite = (siteName, sites) => {
+            const site = sites.find(s => s.name === siteName);
+            return site ? site.currency : 'USD';
+        };
+
+        const getDayAbbreviation = (dateString) => {
+            if (!dateString) return ''; // Handle cases where dateString might be empty
+            const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+            const date = new Date(dateString);
+            return days[date.getUTCDay()];
+        };
+
+        const exchangeRates = {
+            USD: 83,
+            EUR: 90,
+            GBP: 100,
+            INR: 1
+        };
+
+        // --- GENERIC HOOKS & COMPONENTS ---
+        const useSortableData = (items, config = null) => {
+            const [sortConfig, setSortConfig] = useState(config);
+
+            const sortedItems = useMemo(() => {
+                let sortableItems = [...items];
+                if (sortConfig !== null) {
+                    sortableItems.sort((a, b) => {
+                        const valA = a[sortConfig.key];
+                        const valB = b[sortConfig.key];
+                        
+                        if (valA === null || valA === undefined) return 1;
+                        if (valB === null || valB === undefined) return -1;
+                        
+                        // Handle string comparison (case-insensitive for names, sites etc.)
+                        if (typeof valA === 'string' && typeof valB === 'string') {
+                            return sortConfig.direction === 'ascending' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+                        }
+
+                        if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+                        if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+                        return 0;
+                    });
+                }
+                return sortableItems;
+            }, [items, sortConfig]);
+
+            const requestSort = (key) => {
+                let direction = 'ascending';
+                if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+                    direction = 'descending';
+                }
+                setSortConfig({ key, direction });
+            };
+
+            return { items: sortedItems, requestSort, sortConfig };
+        };
+
+        function Modal({ isOpen, onClose, title, children }) {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50 p-4">
+                    <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg max-h-full overflow-y-auto">
+                        <div className="p-4 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-gray-800">
+                            <h3 className="text-xl font-bold text-white">{title}</h3>
+                            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">×</button>
+                        </div>
+                        <div className="p-6">
+                            {children}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        
+        // --- VIEW COMPONENTS ---
+
+        function Dashboard({ tournaments, transactions, pokerSites }) {
+            const overallMetrics = useMemo(() => {
+                // Filter out future tournaments (no entries yet)
+                const completedTournaments = tournaments.filter(t => typeof t.entries === 'number' && t.entries > 0);
+                let totalBankrollINR = 0;
+                let totalBuyInsINR = 0;
+                let totalCashoutsINR = 0;
+                let totalTournaments = completedTournaments.length;
+
+                // Calculate total bankroll in INR
+                pokerSites.forEach(site => {
+                    const lastTx = transactions
+                        .filter(tx => tx.pokerSite === site.name)
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || b.id - a.id)[0]; // Sort by date then ID
+                    if (lastTx) {
+                        const bankroll = lastTx.newBankroll;
+                        const rate = exchangeRates[site.currency] || 1;
+                        totalBankrollINR += bankroll * rate;
+                    }
+                });
+
+                // Calculate total buyIns and cashouts in INR for COMPLETED tournaments
+                completedTournaments.forEach(t => {
+                    const site = pokerSites.find(s => s.name === t.pokerSite);
+                    if (site) {
+                        const rate = exchangeRates[site.currency] || 1;
+                        // Ensure buyInDiscount is handled, default to 0 if undefined
+                        const buyIn = (t.buyIn - (t.buyInDiscount || 0)) * rate;
+                        const cashouts = ((t.bountyCashout || 0) + (t.itmCashout || 0) + (t.tournamentMoneyCashout || 0)) * rate;
+                        totalBuyInsINR += buyIn;
+                        totalCashoutsINR += cashouts;
+                    }
+                });
+
+                const totalProfitINR = totalCashoutsINR - totalBuyInsINR;
+                const overallROI = totalBuyInsINR > 0 ? (totalProfitINR / totalBuyInsINR) * 100 : 0;
+                const averageBuyInINR = totalTournaments > 0 ? totalBuyInsINR / totalTournaments : 0;
+
+                return {
+                    totalBankrollINR,
+                    totalProfitINR,
+                    overallROI,
+                    averageBuyInINR,
+                    totalTournaments
+                };
+            }, [tournaments, transactions, pokerSites]);
+
+            const metrics = useMemo(() => {
+                const dataBySite = {};
+
+                pokerSites.forEach(site => {
+                    const currency = site.currency;
+                    dataBySite[site.name] = {
+                        currency,
+                        buyIns: 0,
+                        cashouts: 0,
+                        count: 0,
+                        profit: 0, // Initialize profit
+                        roi: 0,    // Initialize ROI
+                        abi: 0,    // Initialize Average Buy-In
+                        bankroll: 0, // Initialize bankroll
+                        transactions: { deposit: 0, withdrawal: 0, tax: 0, tournamentMoney: 0, instantBonus: 0, lockedBonus: 0, other: 0 }
+                    };
+                });
+                
+                // Calculate tournament metrics per site for completed tournaments
+                tournaments.filter(t => typeof t.entries === 'number' && t.entries > 0).forEach(t => {
+                    if (dataBySite[t.pokerSite]) {
+                        dataBySite[t.pokerSite].buyIns += (t.buyIn - (t.buyInDiscount || 0));
+                        dataBySite[t.pokerSite].cashouts += (t.bountyCashout || 0) + (t.itmCashout || 0) + (t.tournamentMoneyCashout || 0);
+                        dataBySite[t.pokerSite].count++;
+                    }
+                });
+
+                // Calculate transaction sums per site
+                transactions.forEach(tx => {
+                    if (dataBySite[tx.pokerSite]) {
+                        Object.keys(dataBySite[tx.pokerSite].transactions).forEach(key => {
+                            dataBySite[tx.pokerSite].transactions[key] += (tx[key] || 0);
+                        });
+                    }
+                });
+
+                // Final calculations for each site
+                return Object.entries(dataBySite).map(([siteName, data]) => {
+                    const profit = data.cashouts - data.buyIns;
+                    const roi = data.buyIns > 0 ? (profit / data.buyIns) * 100 : 0;
+                    const abi = data.count > 0 ? data.buyIns / data.count : 0;
+                    
+                    const lastTx = transactions
+                        .filter(tx => tx.pokerSite === siteName)
+                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || b.id - a.id)[0];
+                    const bankroll = lastTx ? lastTx.newBankroll : 0;
+
+                    return { siteName, ...data, profit, roi, abi, bankroll };
+                });
+            }, [tournaments, transactions, pokerSites]);
+
+            return (
+                <div className="p-4 space-y-6">
+                    <h2 className="text-3xl font-bold text-white border-b-2 border-blue-500 pb-2">Dashboard</h2>
+                    <div className="mb-8 p-6 bg-gray-800 rounded-lg shadow-lg">
+                        <h3 className="text-2xl font-semibold text-blue-400 mb-4">Overall Performance (INR Equivalent)</h3>
+                        <div className="grid grid-cols-2 gap-4 text-lg">
+                            <div className="font-semibold text-gray-400">Total Bankroll:</div>
+                            <div className="font-mono text-right">{formatCurrency(overallMetrics.totalBankrollINR, 'INR')}</div>
+                            <div className="font-semibold text-gray-400">Total Profit/Loss:</div>
+                            <div className={`font-mono text-right ${overallMetrics.totalProfitINR >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {formatCurrency(overallMetrics.totalProfitINR, 'INR')}
+                            </div>
+                            <div className="font-semibold text-gray-400">Overall ROI:</div>
+                            <div className={`font-mono text-right ${overallMetrics.overallROI >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                {overallMetrics.overallROI.toFixed(2)}%
+                            </div>
+                            <div className="font-semibold text-gray-400">Average Buy-In (Completed):</div>
+                            <div className="font-mono text-right">{formatCurrency(overallMetrics.averageBuyInINR, 'INR')}</div>
+                            <div className="font-semibold text-gray-400">Completed Tournaments:</div>
+                            <div className="font-mono text-right">{overallMetrics.totalTournaments}</div>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {metrics.map(metric => (
+                            <div key={metric.siteName} className="bg-gray-800 rounded-lg shadow-lg p-6 space-y-4">
+                                <h3 className="text-2xl font-semibold text-blue-400">{metric.siteName}</h3>
+                                <div className="grid grid-cols-2 gap-4 text-lg">
+                                    <div className="font-semibold text-gray-400">Current Bankroll:</div>
+                                    <div className="font-mono text-right">{formatCurrency(metric.bankroll, metric.currency)}</div>
+                                    <div className="font-semibold text-gray-400">Profit/Loss (Completed MTTs):</div>
+                                    <div className={`font-mono text-right ${metric.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                        {formatCurrency(metric.profit, metric.currency)}
+                                    </div>
+                                    <div className="font-semibold text-gray-400">ROI (Completed MTTs):</div>
+                                    <div className={`font-mono text-right ${metric.roi >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                        {metric.roi.toFixed(2)}%
+                                    </div>
+                                    <div className="font-semibold text-gray-400">Avg. Buy-In (Completed MTTs):</div>
+                                    <div className="font-mono text-right">{formatCurrency(metric.abi, metric.currency)}</div>
+                                    <div className="font-semibold text-gray-400">Completed MTTs:</div>
+                                    <div className="font-mono text-right">{metric.count}</div>
+                                </div>
+                                <details className="pt-4">
+                                    <summary className="cursor-pointer text-blue-400 hover:text-blue-300 font-semibold">Total Transactions Overview</summary>
+                                    <div className="mt-2 pl-4 border-l-2 border-gray-700 space-y-2 text-sm">
+                                        {Object.entries(metric.transactions).map(([key, value]) => (
+                                            <div key={key} className="flex justify-between">
+                                                <span className="capitalize text-gray-400">{key.replace(/([A-Z])/g, ' $1')}:</span>
+                                                <span className="font-mono">{formatCurrency(value, metric.currency)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </details>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        function Tournaments({ tournaments, setTournaments, pokerSites, gameTypes, gameFormats, gameStructures }) {
+            const [selectedTournaments, setSelectedTournaments] = useState(new Set());
+            const [isResultModalOpen, setIsResultModalOpen] = useState(false);
+            const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+            const [editingTournament, setEditingTournament] = useState(null);
+            
+            // Ensure default pokerSite is set based on available sites
+            const initialFormState = {
+                date: new Date().toISOString().split('T')[0], time: '12:00', pokerSite: pokerSites[0]?.name || '', 
+                buyIn: '', buyInDiscount: 0, gameType: gameTypes[0] || '', gameFormat: gameFormats[0] || '', 
+                gameStructure: gameStructures[0] || '', gtd: ''
+            };
+            const [newTournament, setNewTournament] = useState(initialFormState);
+
+            // Sort by date and time by default
+            const { items: sortedTournaments, requestSort, sortConfig } = useSortableData(tournaments, { key: 'id', direction: 'descending' });
+
+            const handleInputChange = (e) => {
+                const { name, value } = e.target;
+                setNewTournament(prev => ({ ...prev, [name]: value }));
+            };
+
+            const handleAddTournament = (e) => {
+                e.preventDefault();
+                // Basic validation
+                if (!newTournament.pokerSite || !newTournament.buyIn || !newTournament.gtd) {
+                    alert('Please fill in all required fields: Poker Site, Buy-in, and GTD.');
+                    return;
+                }
+
+                const currency = getCurrencyForSite(newTournament.pokerSite, pokerSites);
+                const symbol = CURRENCY_SYMBOLS[currency] || '$';
+                const day = getDayAbbreviation(newTournament.date);
+
+                const tournamentToAdd = {
+                    ...newTournament,
+                    id: new Date(`${newTournament.date}T${newTournament.time}`).getTime(), // Use combined date and time for unique ID
+                    buyIn: parseFloat(newTournament.buyIn),
+                    buyInDiscount: parseFloat(newTournament.buyInDiscount || 0), // Ensure discount is number
+                    gtd: parseFloat(newTournament.gtd),
+                    name: `${day}-${newTournament.pokerSite}-${symbol}${newTournament.buyIn}`,
+                    // Initialize optional fields to 0 or null if not provided
+                    entries: null, 
+                    addon: 0, 
+                    bountyCashout: 0, 
+                    itmCashout: 0, 
+                    tournamentMoneyCashout: 0, 
+                    finishPosition: null
+                };
+                setTournaments(prev => [...prev, tournamentToAdd]);
+                setNewTournament(initialFormState); // Reset form
+            };
+
+            const handleDelete = (id) => {
+                if(confirm('Are you sure you want to delete this tournament?')) {
+                    setTournaments(tournaments.filter(t => t.id !== id));
+                    setSelectedTournaments(prev => { // Also remove from selected if deleted
+                        const newSet = new Set(prev);
+                        newSet.delete(id);
+                        return newSet;
+                    });
+                }
+            };
+            
+            const handleSelect = (id) => {
+                setSelectedTournaments(prev => {
+                    const newSet = new Set(prev);
+                    if (newSet.has(id)) newSet.delete(id);
+                    else newSet.add(id);
+                    return newSet;
+                });
+            };
+
+            const handleSelectAll = (e) => {
+                if (e.target.checked) {
+                    setSelectedTournaments(new Set(tournaments.map(t => t.id)));
+                } else {
+                    setSelectedTournaments(new Set());
+                }
+            };
+
+            const handleDeleteSelected = () => {
+                if(confirm(`Are you sure you want to delete ${selectedTournaments.size} tournaments?`)) {
+                    setTournaments(tournaments.filter(t => !selectedTournaments.has(t.id)));
+                    setSelectedTournaments(new Set());
+                }
+            };
+            
+            const handleClearAll = () => {
+                if(confirm('Are you sure you want to clear all non-completed tournaments? This action cannot be undone.')) {
+                    setTournaments(tournaments.filter(t => typeof t.entries === 'number' && t.entries > 0)); // Only keep completed ones
+                    setSelectedTournaments(new Set()); // Clear selection after clear all
+                }
+            };
+            
+            const openModal = (tournament, viewOnly = false) => {
+                // Create a deep copy to avoid direct state mutation
+                setEditingTournament({ ...tournament });
+                if (viewOnly) setIsViewModalOpen(true);
+                else setIsResultModalOpen(true);
+            };
+
+            const closeModal = () => {
+                setIsResultModalOpen(false);
+                setIsViewModalOpen(false);
+                setEditingTournament(null);
+            };
+
+            const handleResultUpdate = (e) => {
+                e.preventDefault();
+                // Validate entries before saving
+                if (editingTournament.entries === null || editingTournament.entries === undefined || editingTournament.entries < 0) {
+                    alert('Number of entries cannot be empty or negative.');
+                    return;
+                }
+
+                setTournaments(tournaments.map(t => t.id === editingTournament.id ? {
+                    ...editingTournament,
+                    addon: parseFloat(editingTournament.addon || 0),
+                    bountyCashout: parseFloat(editingTournament.bountyCashout || 0),
+                    itmCashout: parseFloat(editingTournament.itmCashout || 0),
+                    tournamentMoneyCashout: parseFloat(editingTournament.tournamentMoneyCashout || 0),
+                    finishPosition: editingTournament.finishPosition !== null && editingTournament.finishPosition !== '' ? parseInt(editingTournament.finishPosition) : null,
+                } : t));
+                closeModal();
+            };
+
+            const handleResultChange = (e) => {
+                const { name, value } = e.target;
+                setEditingTournament(prev => ({
+                    ...prev,
+                    // Convert to number for numerical fields, allow null for finishPosition if cleared
+                    [name]: ['entries', 'finishPosition'].includes(name) 
+                        ? (value === '' ? null : parseInt(value))
+                        : (value === '' ? 0 : parseFloat(value))
+                }));
+            };
+            
+            const getSortIndicator = (key) => {
+                if (!sortConfig || sortConfig.key !== key) return '↕';
+                if (sortConfig.direction === 'ascending') return '↑';
+                return '↓';
+            };
+
+            return (
+                <div className="p-4 space-y-6">
+                    <h2 className="text-3xl font-bold text-white border-b-2 border-blue-500 pb-2">Add New Tournament</h2>
+                    <form onSubmit={handleAddTournament} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-800 p-4 rounded-lg">
+                        {/* Reordered for better flow, grouped related inputs */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400">Date</label>
+                            <input type="date" name="date" value={newTournament.date} onChange={handleInputChange} required className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400">Time</label>
+                            <input type="time" name="time" value={newTournament.time} onChange={handleInputChange} required className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400">Poker Site</label>
+                            <select name="pokerSite" value={newTournament.pokerSite} onChange={handleInputChange} required className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2">
+                                {pokerSites.length === 0 && <option value="">Add sites in Manage</option>}
+                                {pokerSites.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400">Buy-in</label>
+                            <input type="number" name="buyIn" value={newTournament.buyIn} onChange={handleInputChange} step="0.01" min="0" required className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400">Buy-in Discount</label>
+                            <input type="number" name="buyInDiscount" value={newTournament.buyInDiscount} onChange={handleInputChange} step="0.01" min="0" className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400">GTD (Guaranteed)</label>
+                            <input type="number" name="gtd" value={newTournament.gtd} onChange={handleInputChange} step="0.01" min="0" required className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400">Game Type</label>
+                            <select name="gameType" value={newTournament.gameType} onChange={handleInputChange} className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2">
+                                {gameTypes.length === 0 && <option value="">Add types in Manage</option>}
+                                {gameTypes.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400">Game Format</label>
+                            <select name="gameFormat" value={newTournament.gameFormat} onChange={handleInputChange} className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2">
+                                {gameFormats.length === 0 && <option value="">Add formats in Manage</option>}
+                                {gameFormats.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400">Game Structure</label>
+                            <select name="gameStructure" value={newTournament.gameStructure} onChange={handleInputChange} className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2">
+                                {gameStructures.length === 0 && <option value="">Add structures in Manage</option>}
+                                {gameStructures.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                        </div>
+                        <div className="col-span-full flex justify-end">
+                            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Add Tournament</button>
+                        </div>
+                    </form>
+
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mt-6 gap-4">
+                        <h2 className="text-3xl font-bold text-white border-b-2 border-blue-500 pb-2">All Tournaments</h2>
+                        <div className="flex flex-wrap gap-2">
+                            <button onClick={handleDeleteSelected} disabled={selectedTournaments.size === 0} className={`bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ${selectedTournaments.size === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}>Delete Selected ({selectedTournaments.size})</button>
+                            <button onClick={handleClearAll} className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Clear Uncompleted MTTs</button>
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto bg-gray-800 rounded-lg shadow-lg">
+                        <table className="min-w-full text-sm text-left text-gray-300">
+                            <thead className="text-xs text-gray-400 uppercase bg-gray-700">
+                                <tr>
+                                    <th scope="col" className="p-4"><input type="checkbox" onChange={handleSelectAll} checked={selectedTournaments.size === tournaments.length && tournaments.length > 0} className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500" /></th>
+                                    {['Date & Time', 'Name', 'Site', 'Buy-in', 'GTD', 'Entries', 'Addon', 'Bounty', 'ITM', 'TMoney', 'Finish', 'Actions'].map((header, index) => {
+                                    // Map headers to sortable keys. 'id' for 'Date & Time' to sort by timestamp
+                                    const keys = ['id', 'name', 'pokerSite', 'buyIn', 'gtd', 'entries', 'addon', 'bountyCashout', 'itmCashout', 'tournamentMoneyCashout', 'finishPosition', null];
+                                    const key = keys[index];
+                                    return (
+                                        <th key={header} scope="col" className="px-6 py-3" onClick={() => key && requestSort(key)}>
+                                            {header} {key && <span className="cursor-pointer">{getSortIndicator(key)}</span>}
+                                        </th>
+                                    )
+                                    })}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sortedTournaments.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="12" className="text-center py-4">No tournaments added yet.</td>
+                                    </tr>
+                                ) : (
+                                    sortedTournaments.map(t => {
+                                    const currency = getCurrencyForSite(t.pokerSite, pokerSites);
+                                    const isCompleted = typeof t.entries === 'number' && t.entries > 0; // Check if tournament is completed
+
+                                    // Calculate profit for display directly in the table
+                                    const totalCashout = (t.bountyCashout || 0) + (t.itmCashout || 0) + (t.tournamentMoneyCashout || 0);
+                                    const totalBuyIn = t.buyIn - (t.buyInDiscount || 0);
+                                    const profit = totalCashout - totalBuyIn;
+                                    
+                                    return (
+                                        <tr key={t.id} className={`bg-gray-800 border-b border-gray-700 hover:bg-gray-600 ${isCompleted && profit > 0 ? 'bg-green-900/20' : isCompleted && profit < 0 ? 'bg-red-900/20' : ''}`}>
+                                            <td className="w-4 p-4"><input type="checkbox" checked={selectedTournaments.has(t.id)} onChange={() => handleSelect(t.id)} className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500" /></td>
+                                            <td className="px-6 py-4 whitespace-nowrap">{t.date} {t.time}</td>
+                                            <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{t.name}</td>
+                                            <td className="px-6 py-4">{t.pokerSite}</td>
+                                            <td className="px-6 py-4">{formatCurrency(t.buyIn - (t.buyInDiscount || 0), currency)}</td>
+                                            <td className="px-6 py-4">{formatCurrency(t.gtd, currency)}</td>
+                                            <td className="px-6 py-4">{isCompleted ? t.entries : 'N/A'}</td>
+                                            <td className="px-6 py-4">{formatCurrency(t.addon || 0, currency)}</td>
+                                            <td className="px-6 py-4">{formatCurrency(t.bountyCashout || 0, currency)}</td>
+                                            <td className="px-6 py-4">{formatCurrency(t.itmCashout || 0, currency)}</td>
+                                            <td className="px-6 py-4">{formatCurrency(t.tournamentMoneyCashout || 0, currency)}</td>
+                                            <td className="px-6 py-4">{isCompleted ? (t.finishPosition || 'N/A') : 'N/A'}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap space-x-2">
+                                                {!isCompleted ? (
+                                                    <button onClick={() => openModal(t)} className="font-medium text-blue-500 hover:underline">Update Result</button>
+                                                ) : (
+                                                    <>
+                                                        <button onClick={() => openModal(t)} className="font-medium text-yellow-500 hover:underline">Edit Result</button>
+                                                        <button onClick={() => openModal(t, true)} className="font-medium text-green-500 hover:underline">View</button>
+                                                    </>
+                                                )}
+                                                <button onClick={() => handleDelete(t.id)} className="font-medium text-red-500 hover:underline">Delete</button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {/* Update/Edit Results Modal */}
+                    <Modal isOpen={isResultModalOpen} onClose={closeModal} title={editingTournament?.entries ? "Edit Tournament Results" : "Update Tournament Results"}>
+                        <form onSubmit={handleResultUpdate} className="space-y-4">
+                            {/* Display key tournament info for context */}
+                            {editingTournament && (
+                                <div className="mb-4 p-3 bg-gray-700 rounded text-gray-200">
+                                    <p className="font-semibold text-lg">{editingTournament.name}</p>
+                                    <p>Site: {editingTournament.pokerSite}</p>
+                                    <p>Buy-in: {formatCurrency(editingTournament.buyIn - (editingTournament.buyInDiscount || 0), getCurrencyForSite(editingTournament.pokerSite, pokerSites))}</p>
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400">Entries (Players)</label>
+                                <input
+                                    type="number"
+                                    name="entries"
+                                    value={editingTournament?.entries === null ? '' : editingTournament?.entries} // Show empty for null
+                                    onChange={handleResultChange}
+                                    placeholder="e.g., 150"
+                                    min="0"
+                                    className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400">Addon Amount</label>
+                                <input
+                                    type="number"
+                                    name="addon"
+                                    value={editingTournament?.addon || 0}
+                                    onChange={handleResultChange}
+                                    step="0.01"
+                                    min="0"
+                                    className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400">Bounty Cashout</label>
+                                <input
+                                    type="number"
+                                    name="bountyCashout"
+                                    value={editingTournament?.bountyCashout || 0}
+                                    onChange={handleResultChange}
+                                    step="0.01"
+                                    min="0"
+                                    className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400">ITM (In The Money) Cashout</label>
+                                <input
+                                    type="number"
+                                    name="itmCashout"
+                                    value={editingTournament?.itmCashout || 0}
+                                    onChange={handleResultChange}
+                                    step="0.01"
+                                    min="0"
+                                    className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400">Tournament Money (TM) Cashout</label>
+                                <input
+                                    type="number"
+                                    name="tournamentMoneyCashout"
+                                    value={editingTournament?.tournamentMoneyCashout || 0}
+                                    onChange={handleResultChange}
+                                    step="0.01"
+                                    min="0"
+                                    className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400">Finish Position</label>
+                                <input
+                                    type="number"
+                                    name="finishPosition"
+                                    value={editingTournament?.finishPosition === null ? '' : editingTournament?.finishPosition} // Show empty for null
+                                    onChange={handleResultChange}
+                                    placeholder="e.g., 1 (for win)"
+                                    min="1"
+                                    className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2"
+                                />
+                            </div>
+                            <div className="flex justify-end pt-4">
+                                <button type="button" onClick={closeModal} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg mr-2">Cancel</button>
+                                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Save Results</button>
+                            </div>
+                        </form>
+                    </Modal>
+
+                    {/* View Results Modal */}
+                    <Modal isOpen={isViewModalOpen} onClose={closeModal} title={`Details for ${editingTournament?.name}`}>
+                        <div className="space-y-3 text-gray-300">
+                            {editingTournament && (
+                                <>
+                                    <div className="flex justify-between border-b border-gray-700 py-2">
+                                        <span className="font-semibold text-gray-400">Date & Time:</span>
+                                        <span>{editingTournament.date} {editingTournament.time}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-gray-700 py-2">
+                                        <span className="font-semibold text-gray-400">Poker Site:</span>
+                                        <span>{editingTournament.pokerSite}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-gray-700 py-2">
+                                        <span className="font-semibold text-gray-400">Game Type:</span>
+                                        <span>{editingTournament.gameType}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-gray-700 py-2">
+                                        <span className="font-semibold text-gray-400">Game Format:</span>
+                                        <span>{editingTournament.gameFormat}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-gray-700 py-2">
+                                        <span className="font-semibold text-gray-400">Game Structure:</span>
+                                        <span>{editingTournament.gameStructure}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-gray-700 py-2">
+                                        <span className="font-semibold text-gray-400">Buy-in:</span>
+                                        <span>{formatCurrency(editingTournament.buyIn - (editingTournament.buyInDiscount || 0), getCurrencyForSite(editingTournament.pokerSite, pokerSites))}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-gray-700 py-2">
+                                        <span className="font-semibold text-gray-400">Guaranteed:</span>
+                                        <span>{formatCurrency(editingTournament.gtd, getCurrencyForSite(editingTournament.pokerSite, pokerSites))}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-gray-700 py-2">
+                                        <span className="font-semibold text-gray-400">Entries:</span>
+                                        <span>{editingTournament.entries || 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-gray-700 py-2">
+                                        <span className="font-semibold text-gray-400">Addon:</span>
+                                        <span>{formatCurrency(editingTournament.addon || 0, getCurrencyForSite(editingTournament.pokerSite, pokerSites))}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-gray-700 py-2">
+                                        <span className="font-semibold text-gray-400">Bounty Cashout:</span>
+                                        <span>{formatCurrency(editingTournament.bountyCashout || 0, getCurrencyForSite(editingTournament.pokerSite, pokerSites))}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-gray-700 py-2">
+                                        <span className="font-semibold text-gray-400">ITM Cashout:</span>
+                                        <span>{formatCurrency(editingTournament.itmCashout || 0, getCurrencyForSite(editingTournament.pokerSite, pokerSites))}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-gray-700 py-2">
+                                        <span className="font-semibold text-gray-400">Tournament Money Cashout:</span>
+                                        <span>{formatCurrency(editingTournament.tournamentMoneyCashout || 0, getCurrencyForSite(editingTournament.pokerSite, pokerSites))}</span>
+                                    </div>
+                                    <div className="flex justify-between border-b border-gray-700 py-2">
+                                        <span className="font-semibold text-gray-400">Finish Position:</span>
+                                        <span>{editingTournament.finishPosition || 'N/A'}</span>
+                                    </div>
+                                    <div className="flex justify-end pt-4">
+                                        <button type="button" onClick={closeModal} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">Close</button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </Modal>
+                </div>
+            );
+        }
+
+        function Transactions({ transactions, setTransactions, pokerSites }) {
+            const initialFormState = {
+                date: new Date().toISOString().split('T')[0],
+                pokerSite: pokerSites[0]?.name || '', // Default to first poker site
+                deposit: '',
+                withdrawal: '',
+                tax: '',
+                tournamentMoney: '',
+                instantBonus: '',
+                lockedBonus: '',
+                other: ''
+            };
+            const [newTransaction, setNewTransaction] = useState(initialFormState);
+
+            const handleInputChange = (e) => {
+                const { name, value } = e.target;
+                setNewTransaction(prev => ({ ...prev, [name]: value }));
+            };
+
+            const handleAddTransaction = (e) => {
+                e.preventDefault();
+
+                if (!newTransaction.pokerSite || !newTransaction.date) {
+                    alert('Please select a Poker Site and Date for the transaction.');
+                    return;
+                }
+
+                const parsedDeposit = parseFloat(newTransaction.deposit || 0);
+                const parsedWithdrawal = parseFloat(newTransaction.withdrawal || 0);
+                const parsedTax = parseFloat(newTransaction.tax || 0);
+                const parsedTournamentMoney = parseFloat(newTransaction.tournamentMoney || 0);
+                const parsedInstantBonus = parseFloat(newTransaction.instantBonus || 0);
+                const parsedLockedBonus = parseFloat(newTransaction.lockedBonus || 0);
+                const parsedOther = parseFloat(newTransaction.other || 0);
+
+                // Calculate new bankroll based on the transaction type and previous bankroll
+                // Get all transactions for the specific site, sort by date and then ID to get the latest bankroll
+                const lastTxForSite = transactions
+                    .filter(tx => tx.pokerSite === newTransaction.pokerSite)
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || b.id - a.id)[0];
+                
+                const lastBankroll = lastTxForSite ? lastTxForSite.newBankroll : 0;
+
+                const newBankroll = lastBankroll + parsedDeposit - parsedWithdrawal - parsedTax + parsedTournamentMoney + parsedInstantBonus + parsedLockedBonus + parsedOther;
+
+                const txToAdd = {
+                    id: Date.now(), // Unique ID for transaction
+                    date: newTransaction.date,
+                    pokerSite: newTransaction.pokerSite,
+                    deposit: parsedDeposit,
+                    withdrawal: parsedWithdrawal,
+                    tax: parsedTax,
+                    tournamentMoney: parsedTournamentMoney,
+                    instantBonus: parsedInstantBonus,
+                    lockedBonus: parsedLockedBonus,
+                    other: parsedOther,
+                    newBankroll // Calculated bankroll
+                };
+
+                setTransactions(prev => [...prev, txToAdd]);
+                setNewTransaction(initialFormState); // Reset form
+            };
+
+            const { items: sortedTransactions, requestSort, sortConfig } = useSortableData(transactions, { key: 'id', direction: 'descending' });
+
+            const getSortIndicator = (key) => {
+                if (!sortConfig || sortConfig.key !== key) return '↕';
+                if (sortConfig.direction === 'ascending') return '↑';
+                return '↓';
+            };
+
+            return (
+                <div className="p-4 space-y-6">
+                    <h2 className="text-3xl font-bold text-white border-b-2 border-blue-500 pb-2">Add New Transaction</h2>
+                    <form onSubmit={handleAddTransaction} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-gray-800 p-4 rounded-lg">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400">Date</label>
+                            <input type="date" name="date" value={newTransaction.date} onChange={handleInputChange} required className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400">Poker Site</label>
+                            <select name="pokerSite" value={newTransaction.pokerSite} onChange={handleInputChange} required className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2">
+                                {pokerSites.length === 0 && <option value="">Add sites in Manage</option>}
+                                {pokerSites.map(site => <option key={site.id} value={site.name}>{site.name}</option>)}
+                            </select>
+                        </div>
+                        {/* Input fields for different transaction types */}
+                        {['deposit', 'withdrawal', 'tax', 'tournamentMoney', 'instantBonus', 'lockedBonus', 'other'].map(key => (
+                            <div key={key}>
+                                <label className="block text-sm font-medium text-gray-400 capitalize">{key.replace(/([A-Z])/g, ' $1')}</label>
+                                <input type="number" name={key} value={newTransaction[key]} onChange={handleInputChange} step="0.01" min="0" className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-white p-2" placeholder="0.00" />
+                            </div>
+                        ))}
+                        <div className="col-span-full flex justify-end">
+                            <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Add Transaction</button>
+                        </div>
+                    </form>
+
+                    <h2 className="text-3xl font-bold text-white border-b-2 border-blue-500 pb-2 mt-6">All Transactions</h2>
+                    <div className="overflow-x-auto bg-gray-800 rounded-lg shadow-lg">
+                        <table className="min-w-full text-sm text-left text-gray-300">
+                            <thead className="text-xs text-gray-400 uppercase bg-gray-700">
+                                <tr>
+                                    {/* Added sortable headers */}
+                                    {['Date', 'Site', 'Deposit', 'Withdrawal', 'Tax', 'T-Money', 'Instant Bonus', 'Locked Bonus', 'Other', 'New Bankroll'].map(header => {
+                                        const keys = { 'Date': 'date', 'Site': 'pokerSite', 'Deposit': 'deposit', 'Withdrawal': 'withdrawal', 'Tax': 'tax', 'T-Money': 'tournamentMoney', 'Instant Bonus': 'instantBonus', 'Locked Bonus': 'lockedBonus', 'Other': 'other', 'New Bankroll': 'newBankroll' };
+                                        const key = keys[header];
+                                        return (
+                                            <th key={header} scope="col" className="px-6 py-3" onClick={() => key && requestSort(key)}>
+                                                {header} {key && <span className="cursor-pointer">{getSortIndicator(key)}</span>}
+                                            </th>
+                                        )
+                                    })}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sortedTransactions.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="10" className="text-center py-4">No transactions added yet.</td>
+                                    </tr>
+                                ) : (
+                                    sortedTransactions.map(tx => {
+                                        const currency = getCurrencyForSite(tx.pokerSite, pokerSites);
+                                        return (
+                                            <tr key={tx.id} className="bg-gray-800 border-b border-gray-700 hover:bg-gray-600">
+                                                <td className="px-6 py-4 whitespace-nowrap">{tx.date}</td>
+                                                <td className="px-6 py-4 font-medium text-white">{tx.pokerSite}</td>
+                                                <td className="px-6 py-4 text-green-400">{formatCurrency(tx.deposit, currency)}</td>
+                                                <td className="px-6 py-4 text-red-400">{formatCurrency(tx.withdrawal, currency)}</td>
+                                                <td className="px-6 py-4 text-red-400">{formatCurrency(tx.tax, currency)}</td>
+                                                <td className="px-6 py-4 text-blue-400">{formatCurrency(tx.tournamentMoney, currency)}</td>
+                                                <td className="px-6 py-4 text-green-400">{formatCurrency(tx.instantBonus, currency)}</td>
+                                                <td className="px-6 py-4 text-yellow-400">{formatCurrency(tx.lockedBonus, currency)}</td>
+                                                <td className="px-6 py-4 text-gray-400">{formatCurrency(tx.other, currency)}</td>
+                                                <td className="px-6 py-4 font-bold text-white">{formatCurrency(tx.newBankroll, currency)}</td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+        
+        function MTTResults({ tournaments, pokerSites }) {
+            // Only show completed tournaments
+            const completedTournaments = useMemo(() => tournaments.filter(t => typeof t.entries === 'number' && t.entries > 0), [tournaments]);
+            const { items: sortedResults, requestSort, sortConfig } = useSortableData(completedTournaments, { key: 'id', direction: 'descending' });
+            
+            const getSortIndicator = (key) => {
+                if (!sortConfig || sortConfig.key !== key) return '↕';
+                if (sortConfig.direction === 'ascending') return '↑';
+                return '↓';
+            };
+
+            return (
+                <div className="p-4 space-y-6">
+                    <h2 className="text-3xl font-bold text-white border-b-2 border-blue-500 pb-2">Completed MTT Results</h2>
+                    <div className="overflow-x-auto bg-gray-800 rounded-lg shadow-lg">
+                        <table className="min-w-full text-sm text-left text-gray-300">
+                            <thead className="text-xs text-gray-400 uppercase bg-gray-700">
+                                <tr>
+                                    {['Date & Time', 'Name', 'Site', 'Buy-in', 'GTD', 'Entries', 'Addon', 'Bounty', 'ITM', 'TMoney', 'Finish', 'Profit/Loss', 'ROI'].map((header) => {
+                                    // Added keys for new sortable columns
+                                    const keys = { 
+                                        'Date & Time': 'id', 'Name': 'name', 'Site': 'pokerSite', 'Buy-in': 'buyIn', 'GTD': 'gtd', 
+                                        'Entries': 'entries', 'Addon': 'addon', 'Bounty': 'bountyCashout', 'ITM': 'itmCashout', 
+                                        'TMoney': 'tournamentMoneyCashout', 'Finish': 'finishPosition', 'Profit/Loss': 'profit', 'ROI': 'roi'
+                                    };
+                                    const key = keys[header];
+                                    return (
+                                        <th key={header} scope="col" className="px-6 py-3 cursor-pointer" onClick={() => requestSort(key)}>
+                                            {header} {getSortIndicator(key)}
+                                        </th>
+                                    )
+                                    })}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sortedResults.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="13" className="text-center py-4">No completed tournaments to display.</td>
+                                    </tr>
+                                ) : (
+                                    sortedResults.map(t => {
+                                        const currency = getCurrencyForSite(t.pokerSite, pokerSites);
+                                        const totalOut = (t.bountyCashout || 0) + (t.itmCashout || 0) + (t.tournamentMoneyCashout || 0);
+                                        const netBuyIn = t.buyIn - (t.buyInDiscount || 0);
+                                        const profit = totalOut - netBuyIn;
+                                        const roi = netBuyIn > 0 ? (profit / netBuyIn) * 100 : 0;
+
+                                        return (
+                                            <tr key={t.id} className={`bg-gray-800 border-b border-gray-700 hover:bg-gray-600 ${profit > 0 ? 'bg-green-900/20' : profit < 0 ? 'bg-red-900/20' : ''}`}>
+                                                <td className="px-6 py-4 whitespace-nowrap">{t.date} {t.time}</td>
+                                                <td className="px-6 py-4 font-medium text-white whitespace-nowrap">{t.name}</td>
+                                                <td className="px-6 py-4">{t.pokerSite}</td>
+                                                <td className="px-6 py-4">{formatCurrency(netBuyIn, currency)}</td>
+                                                <td className="px-6 py-4">{formatCurrency(t.gtd, currency)}</td>
+                                                <td className="px-6 py-4">{t.entries}</td>
+                                                <td className="px-6 py-4">{formatCurrency(t.addon || 0, currency)}</td>
+                                                <td className="px-6 py-4">{formatCurrency(t.bountyCashout || 0, currency)}</td>
+                                                <td className="px-6 py-4">{formatCurrency(t.itmCashout || 0, currency)}</td>
+                                                <td className="px-6 py-4">{formatCurrency(t.tournamentMoneyCashout || 0, currency)}</td>
+                                                <td className="px-6 py-4">{t.finishPosition || 'N/A'}</td>
+                                                <td className={`px-6 py-4 ${profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>{formatCurrency(profit, currency)}</td>
+                                                <td className={`px-6 py-4 ${roi >= 0 ? 'text-green-400' : 'text-red-400'}`}>{roi.toFixed(2)}%</td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+        
+        function ManageList({ title, items, setItems }) {
+            const [newItem, setNewItem] = useState('');
+
+            const handleAdd = () => {
+                const trimmedNewItem = newItem.trim();
+                if (trimmedNewItem && !items.includes(trimmedNewItem)) {
+                    setItems([...items, trimmedNewItem]);
+                    setNewItem('');
+                } else if (trimmedNewItem && items.includes(trimmedNewItem)) {
+                    alert(`"${trimmedNewItem}" already exists in the list.`);
+                }
+            };
+
+            const handleRemove = (itemToRemove) => {
+                if (confirm(`Are you sure you want to remove "${itemToRemove}"?`)) {
+                    setItems(items.filter(item => item !== itemToRemove));
+                }
+            };
+
+            return (
+                <div className="bg-gray-800 rounded-lg shadow-lg p-6">
+                    <h3 className="text-xl font-semibold mb-4 text-blue-400">{title}</h3>
+                    <div className="flex mb-4">
+                        <input type="text" value={newItem} onChange={e => setNewItem(e.target.value)} className="flex-grow bg-gray-700 border-gray-600 rounded-l-md focus:ring-blue-500 focus:border-blue-500 text-white p-2" placeholder={`Add new ${title.slice(0, -1).toLowerCase()}`} onKeyPress={(e) => { if (e.key === 'Enter') handleAdd(); }} />
+                        <button onClick={handleAdd} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 rounded-r-md">Add</button>
+                    </div>
+                    {items.length === 0 ? (
+                        <p className="text-gray-400">No {title.toLowerCase()} added yet.</p>
+                    ) : (
+                        <ul className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar"> {/* Added custom-scrollbar for better aesthetics */}
+                            {items.map(item => (
+                                <li key={item} className="flex justify-between items-center bg-gray-700 p-2 rounded">
+                                    <span>{item}</span>
+                                    <button onClick={() => handleRemove(item)} className="text-red-500 hover:text-red-400 font-bold ml-2">×</button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            );
+        }
+        
+        function ManagePokerSites({ sites, setSites, tournaments, transactions }) {
+            const [name, setName] = useState('');
+            const [currency, setCurrency] = useState('INR');
+
+            const handleAdd = () => {
+                const trimmedName = name.trim();
+                if (trimmedName && !sites.find(s => s.name.toLowerCase() === trimmedName.toLowerCase())) {
+                    setSites([...sites, { id: Date.now(), name: trimmedName, currency }]);
+                    setName('');
+                    setCurrency('INR');
+                } else if (trimmedName && sites.find(s => s.name.toLowerCase() === trimmedName.toLowerCase())) {
+                    alert(`Poker site "${trimmedName}" already exists.`);
+                }
+            };
+
+            const handleRemove = (id) => {
+                const siteToRemove = sites.find(site => site.id === id);
+                if (!siteToRemove) return;
+
+                // Check if there are any associated tournaments or transactions
+                const hasAssociatedTournaments = tournaments.some(t => t.pokerSite === siteToRemove.name);
+                const hasAssociatedTransactions = transactions.some(tx => tx.pokerSite === siteToRemove.name);
+
+                if (hasAssociatedTournaments || hasAssociatedTransactions) {
+                    alert(`Cannot delete "${siteToRemove.name}" because it has associated tournaments or transactions. Please delete them first.`);
+                    return;
+                }
+
+                if (confirm(`Are you sure you want to remove poker site "${siteToRemove.name}"? This cannot be undone.`)) {
+                    setSites(sites.filter(site => site.id !== id));
+                }
+            };
+
+            return (
+                <div className="bg-gray-800 rounded-lg shadow-lg p-6">
+                    <h3 className="text-xl font-semibold mb-4 text-blue-400">Poker Sites</h3>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        <input type="text" value={name} onChange={e => setName(e.target.value)} className="flex-grow bg-gray-700 border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 text-white p-2" placeholder="Site Name" onKeyPress={(e) => { if (e.key === 'Enter') handleAdd(); }} />
+                        <select value={currency} onChange={e => setCurrency(e.target.value)} className="bg-gray-700 border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 text-white p-2">
+                            {Object.keys(CURRENCY_SYMBOLS).map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                        <button onClick={handleAdd} className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 rounded-md">Add</button>
+                    </div>
+                    {sites.length === 0 ? (
+                        <p className="text-gray-400">No poker sites added yet.</p>
+                    ) : (
+                        <ul className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                            {sites.map(site => (
+                                <li key={site.id} className="flex justify-between items-center bg-gray-700 p-2 rounded">
+                                    <span>{site.name} ({site.currency})</span>
+                                    <button onClick={() => handleRemove(site.id)} className="text-red-500 hover:text-red-400 font-bold ml-2">×</button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            );
+        }
+
+        function Manage({ pokerSites, setPokerSites, gameTypes, setGameTypes, gameFormats, setGameFormats, gameStructures, setGameStructures, tournaments, transactions }) {
+            return (
+                <div className="p-4 space-y-6">
+                    <h2 className="text-3xl font-bold text-white border-b-2 border-blue-500 pb-2">Manage Data Lists</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Pass tournaments and transactions to ManagePokerSites for dependency check */}
+                        <ManagePokerSites 
+                            sites={pokerSites} 
+                            setSites={setPokerSites} 
+                            tournaments={tournaments} 
+                            transactions={transactions} 
+                        />
+                        <ManageList title="Game Types" items={gameTypes} setItems={setGameTypes} />
+                        <ManageList title="Game Formats" items={gameFormats} setItems={setGameFormats} />
+                        <ManageList title="Game Structures" items={gameStructures} setItems={setGameStructures} />
+                    </div>
+                </div>
+            );
+        }
+
+        // --- MAIN APP COMPONENT ---
+        function App() {
+            const [view, setView] = useState('Dashboard');
+            
+            // Custom hook for persistent state with error handling
+            const usePersistentState = (key, initialValue) => {
+                const [state, setState] = useState(() => {
+                    try {
+                        const item = window.localStorage.getItem(key);
+                        return item ? JSON.parse(item) : initialValue;
+                    } catch (error) {
+                        console.error(`Error reading localStorage key "${key}":`, error);
+                        return initialValue;
+                    }
+                });
+
+                useEffect(() => {
+                    try {
+                        window.localStorage.setItem(key, JSON.stringify(state));
+                    } catch (error) {
+                        console.error(`Error setting localStorage key "${key}":`, error);
+                    }
+                }, [key, state]);
+
+                return [state, setState];
+            };
+
+            const [tournaments, setTournaments] = usePersistentState('pokerTournaments', initialTournaments);
+            const [transactions, setTransactions] = usePersistentState('pokerTransactions', initialTransactions);
+            const [pokerSites, setPokerSites] = usePersistentState('pokerSites', initialPokerSites);
+            const [gameTypes, setGameTypes] = usePersistentState('pokerGameTypes', initialGameTypes);
+            const [gameFormats, setGameFormats] = usePersistentState('pokerGameFormats', initialGameFormats);
+            const [gameStructures, setGameStructures] = usePersistentState('pokerGameStructures', initialGameStructures);
+            
+            const renderView = () => {
+                switch (view) {
+                    case 'Dashboard': return <Dashboard tournaments={tournaments} transactions={transactions} pokerSites={pokerSites} />;
+                    case 'Tournaments': return <Tournaments tournaments={tournaments} setTournaments={setTournaments} pokerSites={pokerSites} gameTypes={gameTypes} gameFormats={gameFormats} gameStructures={gameStructures} />;
+                    case 'Transactions': return <Transactions transactions={transactions} setTransactions={setTransactions} pokerSites={pokerSites} />;
+                    case 'MTT Results': return <MTTResults tournaments={tournaments} pokerSites={pokerSites} />;
+                    case 'Manage': return <Manage 
+                                                pokerSites={pokerSites} setPokerSites={setPokerSites} 
+                                                gameTypes={gameTypes} setGameTypes={setGameTypes} 
+                                                gameFormats={gameFormats} setGameFormats={setGameFormats} 
+                                                gameStructures={gameStructures} setGameStructures={setGameStructures}
+                                                tournaments={tournaments} // Pass tournaments for site deletion check
+                                                transactions={transactions} // Pass transactions for site deletion check
+                                            />;
+                    default: return <Dashboard />;
+                }
+            };
+            
+            const NavButton = ({ buttonView }) => (
+                <button
+                    onClick={() => setView(buttonView)}
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors duration-300 ${view === buttonView ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`}
+                >
+                    {buttonView}
+                </button>
+            );
+
+            return (
+                <div className="min-h-screen bg-gray-900 text-gray-100"> {/* Set a base dark background */}
+                    <nav className="bg-gray-800 shadow-lg">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="flex items-center justify-between h-16">
+                                <div className="flex items-center">
+                                    <span className="font-bold text-xl text-white">♠️ Poker Manager</span>
+                                </div>
+                                <div className="flex items-baseline space-x-1 md:space-x-4">
+                                    {['Dashboard', 'Tournaments', 'Transactions', 'MTT Results', 'Manage'].map(v => <NavButton key={v} buttonView={v} />)}
+                                </div>
+                            </div>
+                        </div>
+                    </nav>
+                    <main>
+                        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+                            {renderView()}
+                        </div>
+                    </main>
+                    {/* The style block was already here, but moved into <head> for better practice. */}
+                    {/* No need for a separate <style jsx> block if using a single HTML file */}
+                </div>
+            );
+        }
+
+        // Render the App
+        const container = document.getElementById('root');
+        const root = ReactDOM.createRoot(container);
+        root.render(<App />);
+    </script>
+</body>
+</html>
