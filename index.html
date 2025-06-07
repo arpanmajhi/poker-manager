@@ -4,884 +4,868 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Poker Manager Pro</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18.3.1/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/heroicons/2.1.3/24/outline/heroicons.min.css" rel="stylesheet">
-    <script>
-        // Customizing Tailwind theme for a better dark mode experience
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'brand-primary': '#4f46e5', // Indigo 600
-                        'brand-secondary': '#6366f1', // Indigo 500
-                        'gray-950': '#0d1117',
-                        'gray-900': '#161b22',
-                        'gray-800': '#1e242c',
-                        'gray-700': '#2c333c',
-                        'gray-600': '#4b5563',
-                        'success': '#22c55e', // Green 500
-                        'danger': '#ef4444', // Red 500
-                        'warning': '#f97316', // Orange 500
-                    }
-                }
-            }
-        }
-    </script>
     <style>
-        /* Simple transition for collapsible sections */
-        .collapsible-content {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
-        }
-        .collapsible-content.expanded {
-            max-height: 500px; /* Adjust as needed */
-            transition: max-height 0.5s ease-in;
-        }
-        /* For a cleaner scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #161b22; }
-        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f0f0f0; }
+        .container { max-width: 1200px; margin: auto; }
+        .nav-bar { display: flex; gap: 10px; margin-bottom: 20px; }
+        .nav-item { padding: 10px 20px; background: #333; color: white; cursor: pointer; border-radius: 5px; }
+        .nav-item:hover { background: #555; }
+        .section { display: none; background: white; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        .section.active { display: block; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        th { background: #f5f5f5; cursor: pointer; }
+        button { padding: 5px 10px; margin: 2px; background: #007BFF; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .delete-btn { background: #DC3545; }
+        .delete-btn:hover { background: #b02a37; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+        .modal-content { background: white; margin: 15% auto; padding: 20px; width: 80%; max-width: 500px; border-radius: 5px; }
+        .notification { position: fixed; top: 10px; right: 10px; padding: 10px 20px; border-radius: 5px; display: none; }
+        .notification.success { background: #28A745; color: white; }
+        .notification.error { background: #DC3545; color: white; }
+        .positive { color: #28A745; }
+        .negative { color: #DC3545; }
+        input, select { padding: 5px; margin: 5px 0; width: calc(100% - 12px); }
     </style>
 </head>
-<body class="bg-gray-950 text-gray-200 antialiased">
-    <div id="root"></div>
+<body>
+    <div class="container">
+        <div class="nav-bar">
+            <div class="nav-item" onclick="showSection('dashboard')">Dashboard</div>
+            <div class="nav-item" onclick="showSection('tournaments')">Tournaments</div>
+            <div class="nav-item" onclick="showSection('transactions')">Transactions</div>
+            <div class="nav-item" onclick="showSection('results')">Results</div>
+            <div class="nav-item" onclick="showSection('manage')">Manage</div>
+        </div>
 
-    <script type="text/babel" data-presets="react">
-        //============== UTILITY & HELPER FUNCTIONS ==============//
+        <div id="dashboard" class="section active">
+            <h2>Dashboard</h2>
+            <div id="overall-stats"></div>
+            <div id="per-site-stats"></div>
+        </div>
 
-        const { useState, useEffect, useMemo, useCallback, useRef } = React;
+        <div id="tournaments" class="section">
+            <h2>Tournaments</h2>
+            <button onclick="openAddTournamentModal()">Add Tournament</button>
+            <button class="delete-btn" onclick="clearUncompletedTournaments()">Clear Uncompleted</button>
+            <table id="tournaments-table">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable('tournaments-table', 0)">Date</th>
+                        <th>Status</th>
+                        <th>Name</th>
+                        <th>Site</th>
+                        <th>Buy-in</th>
+                        <th>GTD</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
 
-        // --- Hardcoded Exchange Rates ---
-        const EXCHANGE_RATES = { 'INR': 1, 'USD': 83.50, 'EUR': 90.10 };
+        <div id="transactions" class="section">
+            <h2>Transactions</h2>
+            <button onclick="openAddTransactionModal()">Add Transaction</button>
+            <table id="transactions-table">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable('transactions-table', 0)">Date</th>
+                        <th>Site</th>
+                        <th>Deposit</th>
+                        <th>Withdrawal</th>
+                        <th>Tax</th>
+                        <th>Tournament Money</th>
+                        <th>Bonuses</th>
+                        <th>Adjustments</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
 
-        // --- Utility Functions ---
-        const formatCurrency = (amount, currency = 'INR') => {
-            try {
-                return new Intl.NumberFormat('en-IN', {
-                    style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2
-                }).format(amount);
-            } catch (e) { return `${currency} ${amount.toFixed(2)}`; }
+        <div id="results" class="section">
+            <h2>Results</h2>
+            <table id="results-table">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable('results-table', 0)">Date</th>
+                        <th>Name</th>
+                        <th>Site</th>
+                        <th>Buy-in</th>
+                        <th>GTD</th>
+                        <th>Entries</th>
+                        <th>Finish</th>
+                        <th>Cashout</th>
+                        <th>Profit/Loss</th>
+                        <th>ROI</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div id="manage" class="section">
+            <h2>Manage</h2>
+            <h3>Poker Sites</h3>
+            <button onclick="openAddSiteModal()">Add Site</button>
+            <div id="sites-list"></div>
+            <h3>Game Configurations</h3>
+            <div id="game-types"></div>
+            <div id="formats"></div>
+            <div id="structures"></div>
+            <h3>Data</h3>
+            <button onclick="exportData()">Export Data (JSON)</button>
+            <button onclick="document.getElementById('import-file').click()">Import Data (JSON)</button>
+            <input type="file" id="import-file" style="display:none" onchange="importData(event)">
+            <button onclick="exportTournamentsCSV()">Export Tournaments CSV</button>
+            <button onclick="exportTransactionsCSV()">Export Transactions CSV</button>
+            <input type="file" id="import-tournaments" style="display:none" accept=".csv" onchange="importTournamentsCSV(event)">
+            <button onclick="document.getElementById('import-tournaments').click()">Import Tournaments CSV</button>
+            <input type="file" id="import-transactions" style="display:none" accept=".csv" onchange="importTransactionsCSV(event)">
+            <button onclick="document.getElementById('import-transactions').click()">Import Transactions CSV</button>
+        </div>
+
+        <div id="modal" class="modal">
+            <div class="modal-content" id="modal-content"></div>
+        </div>
+
+        <div id="notification" class="notification"></div>
+    </div>
+
+    <script>
+        let pokerSites = [];
+        let tournaments = [];
+        let transactions = [];
+        let gameTypes = ["NLH", "PLO"];
+        let formats = ["Regular", "PKO"];
+        let structures = ["Regular", "Turbo"];
+        let siteIdCounter = 0;
+        let tournamentIdCounter = 0;
+        let transactionIdCounter = 0;
+        const baseCurrency = "INR";
+        const currencies = ["INR", "USD", "EUR", "GBP"];
+        const exchangeRates = { "USD": 80, "EUR": 90, "GBP": 100, "INR": 1 };
+        const transactionTypeMapping = {
+            'Deposit': 'deposit',
+            'Withdrawal': 'withdrawal',
+            'Others': 'otherAdjustments',
+            'Bonus': 'instantBonus'
         };
 
-        const getTodayDate = () => new Date().toISOString().split('T')[0];
-        const getNowTime = () => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-
-        //============== CUSTOM HOOKS ==============//
-
-        function useLocalStorage(key, initialValue) {
-            const [storedValue, setStoredValue] = useState(() => {
-                try {
-                    const item = window.localStorage.getItem(key);
-                    return item ? JSON.parse(item) : initialValue;
-                } catch (error) { console.error(error); return initialValue; }
-            });
-
-            const setValue = useCallback((value) => {
-                try {
-                    const valueToStore = value instanceof Function ? value(storedValue) : value;
-                    setStoredValue(valueToStore);
-                    window.localStorage.setItem(key, JSON.stringify(valueToStore));
-                } catch (error) { console.error(error); }
-            }, [key, storedValue]);
-
-            return [storedValue, setValue];
+        // Utility Functions
+        function formatCurrency(amount, currency) {
+            return new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(amount);
         }
 
-        //============== CORE DATA MODELS & DEFAULTS ==============//
+        function parseCurrency(str) {
+            if (!str) return 0;
+            const numStr = str.replace(/[^0-9.-]+/g, '');
+            return parseFloat(numStr) || 0;
+        }
 
-        const DEFAULT_POKER_SITES = [ { id: 1, name: 'PokerBaazi', currency: 'INR' }, { id: 2, name: 'GGPoker', currency: 'USD' } ];
-        const DEFAULT_GAME_TYPES = ['NLH', 'PLO', 'PLO5', 'PLO6'];
-        const DEFAULT_GAME_FORMATS = ['Regular', 'PKO', 'Bounty', 'Deepstack', 'Turbo', 'Hyper-Turbo'];
-        const DEFAULT_GAME_STRUCTURES = ['Regular', 'Turbo', 'Hyper-Turbo'];
-        const APP_DATA_KEYS = ['poker_tournaments', 'poker_transactions', 'poker_sites', 'poker_gameTypes', 'poker_gameFormats', 'poker_gameStructures'];
+        function convertToBase(amount, currency) {
+            return amount * (exchangeRates[currency] || 1);
+        }
 
+        function getSiteById(siteId) {
+            return pokerSites.find(site => site.id === siteId);
+        }
 
-        //============== APP COMPONENTS ==============//
+        function getOrCreateSiteId(name, currency = 'INR') {
+            let site = pokerSites.find(s => s.name.toLowerCase() === name.toLowerCase());
+            if (!site) {
+                site = { id: siteIdCounter++, name, currency, bankroll: 0 };
+                pokerSites.push(site);
+            }
+            return site.id;
+        }
 
-        // --- ICON COMPONENT ---
-        const Icon = ({ name, className = "w-6 h-6" }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-                {/* A simple router for heroicons outline set */}
-                {name === 'dashboard' && <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h12A2.25 2.25 0 0 0 20.25 14.25V3.75M3.75 3h16.5M3.75 3v.008h.008V3H3.75Zm0 3.75h.008v.008H3.75V6.75Zm0 3.75h.008v.008H3.75v-.008Zm0 3.75h.008v.008H3.75v-.008Zm3.75-3.75h.008v.008H7.5v-.008Zm0 3.75h.008v.008H7.5v-.008Zm3.75-3.75h.008v.008h-.008v-.008Zm0 3.75h.008v.008h-.008v-.008Zm3.75-3.75h.008v.008h-.008v-.008Zm0 3.75h.008v.008h-.008v-.008Z" />}
-                {name === 'tournaments' && <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-1.5h5.25m-5.25 0h5.25m-5.25 0h5.25M9 9.75l3 3m0 0l3-3m-3 3v-6m-1.5 1.5H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />}
-                {name === 'transactions' && <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 8.25m0 0L16.5 12M21 8.25H7.5" />}
-                {name === 'completed' && <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />}
-                {name === 'manage' && <path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-1.007 1.11-1.226M10.343 3.94a3.75 3.75 0 0 1-3.296 3.296M10.343 3.94A3.75 3.75 0 0 0 9 3.75h1.5M13.657 3.94c-.09.542-.56 1.007-1.11 1.226m1.11-1.226a3.75 3.75 0 0 1 3.296 3.296M13.657 3.94A3.75 3.75 0 0 0 15 3.75h-1.5m-3.75 16.5c.09.542.56 1.007 1.11 1.226M10.343 20.06a3.75 3.75 0 0 1-3.296-3.296M10.343 20.06a3.75 3.75 0 0 0-1.296-.286H7.5m2.843 3.526A3.75 3.75 0 0 0 12 21.75h-1.5m3.75-1.5c-.09-.542-.56-1.007-1.11-1.226m1.11-1.226a3.75 3.75 0 0 0 3.296-3.296M13.657 20.06a3.75 3.75 0 0 1 1.296-.286H16.5m-2.843 3.526A3.75 3.75 0 0 1 12 21.75h1.5M12 12a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Zm0 0v2.25M12 12h2.25M12 12l-2.25-2.25M12 12l2.25 2.25M12 12l-2.25 2.25M12 12l2.25-2.25" />}
-                {name === 'export' && <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />}
-                {name === 'import' && <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />}
-                {name === 'delete' && <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />}
-            </svg>
-        );
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            setTimeout(() => notification.style.display = 'none', 3000);
+        }
 
-        // --- MODAL COMPONENT ---
-        const Modal = ({ isOpen, onClose, title, children }) => {
-            if (!isOpen) return null;
-            return (
-                <div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 transition-opacity" onClick={onClose}>
-                    <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg m-4 border border-gray-700" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex justify-between items-center p-4 border-b border-gray-700">
-                            <h2 className="text-xl font-bold text-white">{title}</h2>
-                            <button onClick={onClose} className="text-gray-400 hover:text-white text-3xl font-light">×</button>
-                        </div>
-                        <div className="p-6">{children}</div>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- MANAGE VIEW ---
-        const ManageView = ({
-            pokerSites, setPokerSites, gameTypes, setGameTypes,
-            gameFormats, setGameFormats, gameStructures, setGameStructures,
-            tournaments, transactions
-        }) => {
-            const [newItem, setNewItem] = useState({ type: '', name: '', currency: 'INR' });
-            const importFileRef = useRef(null);
-
-            const handleAddItem = (listType, setter) => {
-                if (!newItem.name.trim()) return;
-                if (listType === 'pokerSites') {
-                    if (pokerSites.some(site => site.name.toLowerCase() === newItem.name.toLowerCase())) {
-                        alert('A poker site with this name already exists.'); return;
-                    }
-                    setter(prev => [...prev, { id: Date.now(), name: newItem.name.trim(), currency: newItem.currency }]);
-                } else {
-                    const list = { 'Game Types': gameTypes, 'Game Formats': gameFormats, 'Game Structures': gameStructures }[listType];
-                    if (list.some(item => item.toLowerCase() === newItem.name.toLowerCase())) {
-                        alert(`This ${listType.slice(5,-1)} already exists.`); return;
-                    }
-                    setter(prev => [...prev, newItem.name.trim()]);
-                }
-                setNewItem({ type: '', name: '', currency: 'INR' });
+        // Data Persistence
+        function saveData() {
+            const data = {
+                pokerSites, tournaments, transactions,
+                gameTypes, formats, structures,
+                siteIdCounter, tournamentIdCounter, transactionIdCounter
             };
+            localStorage.setItem('pokerManagerData', JSON.stringify(data));
+        }
 
-            const handleDeleteItem = (listType, setter, idOrName) => {
-                if (listType === 'pokerSites') {
-                    const siteName = pokerSites.find(s => s.id === idOrName)?.name;
-                    const isUsed = tournaments.some(t => t.pokerSite === siteName) || transactions.some(t => t.pokerSite === siteName);
-                    if (isUsed) {
-                        alert('Cannot delete this site. It is currently used in tournaments or transactions.'); return;
-                    }
-                    setter(prev => prev.filter(item => item.id !== idOrName));
-                } else {
-                    setter(prev => prev.filter(item => item !== idOrName));
-                }
+        function loadData() {
+            const data = JSON.parse(localStorage.getItem('pokerManagerData'));
+            if (data) {
+                pokerSites = data.pokerSites;
+                tournaments = data.tournaments;
+                transactions = data.transactions;
+                gameTypes = data.gameTypes;
+                formats = data.formats;
+                structures = data.structures;
+                siteIdCounter = data.siteIdCounter;
+                tournamentIdCounter = data.tournamentIdCounter;
+                transactionIdCounter = data.transactionIdCounter;
+            }
+            updateUI();
+        }
+
+        // UI Navigation
+        function showSection(sectionId) {
+            document.querySelectorAll('.section').forEach(section => section.classList.remove('active'));
+            document.getElementById(sectionId).classList.add('active');
+            updateUI();
+        }
+
+        // Modals
+        function openModal(content) {
+            document.getElementById('modal-content').innerHTML = content;
+            document.getElementById('modal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        // Dashboard
+        function updateDashboard() {
+            const overall = calculateOverallStats();
+            const perSite = calculatePerSiteStats();
+            document.getElementById('overall-stats').innerHTML = `
+                <h3>Overall Performance</h3>
+                <p>Total Bankroll: ${formatCurrency(overall.bankroll, baseCurrency)}</p>
+                <p>Profit/Loss: <span class="${overall.profitLoss >= 0 ? 'positive' : 'negative'}">${formatCurrency(overall.profitLoss, baseCurrency)}</span></p>
+                <p>Average Buy-in: ${formatCurrency(overall.avgBuyIn, baseCurrency)}</p>
+                <p>Total Tournaments: ${overall.totalTournaments}</p>
+                <p>ROI: ${overall.roi.toFixed(2)}%</p>
+            `;
+            document.getElementById('per-site-stats').innerHTML = perSite.map(site => `
+                <details>
+                    <summary>${site.name} (Bankroll: ${formatCurrency(site.bankroll, site.currency)})</summary>
+                    <p>Profit/Loss: <span class="${site.profitLoss >= 0 ? 'positive' : 'negative'}">${formatCurrency(site.profitLoss, site.currency)}</span></p>
+                    <p>Avg Buy-in: ${formatCurrency(site.avgBuyIn, site.currency)}</p>
+                    <p>Tournaments: ${site.totalTournaments}</p>
+                    <p>ROI: ${site.roi.toFixed(2)}%</p>
+                    <p>Deposits: ${formatCurrency(site.transactions.deposits, site.currency)}</p>
+                    <p>Withdrawals: ${formatCurrency(site.transactions.withdrawals, site.currency)}</p>
+                    <p>Taxes: ${formatCurrency(site.transactions.taxes, site.currency)}</p>
+                    <p>Bonuses: ${formatCurrency(site.transactions.bonuses, site.currency)}</p>
+                    <p>Adjustments: ${formatCurrency(site.transactions.adjustments, site.currency)}</p>
+                </details>
+            `).join('');
+        }
+
+        function calculateOverallStats() {
+            const completed = tournaments.filter(t => t.completed);
+            const totalBankroll = pokerSites.reduce((sum, site) => sum + convertToBase(site.bankroll, site.currency), 0);
+            const profitLoss = completed.reduce((sum, t) => {
+                const site = getSiteById(t.siteId);
+                const cashout = (t.itmCashout || 0) + (t.bountyCashout || 0);
+                const cost = t.buyIn + (t.addOnCosts || 0);
+                return sum + convertToBase(cashout - cost, site.currency);
+            }, 0);
+            const totalBuyIns = completed.reduce((sum, t) => sum + convertToBase(t.buyIn, getSiteById(t.siteId).currency), 0);
+            return {
+                bankroll: totalBankroll,
+                profitLoss,
+                avgBuyIn: completed.length ? totalBuyIns / completed.length : 0,
+                totalTournaments: completed.length,
+                roi: totalBuyIns ? (profitLoss / totalBuyIns) * 100 : 0
             };
-            
-            const handleExport = () => {
-                const dataToExport = {};
-                APP_DATA_KEYS.forEach(key => {
-                    dataToExport[key] = JSON.parse(localStorage.getItem(key) || '[]');
-                });
-                const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `poker-manager-backup-${getTodayDate()}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                alert('Data exported successfully!');
-            };
+        }
 
-            const handleImport = (event) => {
-                const file = event.target.files[0];
-                if (!file) return;
-
-                if (!window.confirm("Are you sure you want to import data? This will overwrite all current application data.")) {
-                    return;
-                }
-
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    try {
-                        const importedData = JSON.parse(e.target.result);
-                        let valid = true;
-                        // Basic validation
-                        for(const key of APP_DATA_KEYS) {
-                            if (!Array.isArray(importedData[key])) {
-                                valid = false;
-                                break;
-                            }
-                        }
-
-                        if (!valid) {
-                           throw new Error("Invalid or corrupted backup file format.");
-                        }
-
-                        // Update all data in localStorage and reload
-                        APP_DATA_KEYS.forEach(key => {
-                            localStorage.setItem(key, JSON.stringify(importedData[key]));
-                        });
-                        
-                        alert("Data imported successfully! The application will now reload.");
-                        window.location.reload();
-
-                    } catch (error) {
-                        alert(`Error importing file: ${error.message}`);
-                    } finally {
-                         // Reset file input
-                        if(importFileRef.current) {
-                            importFileRef.current.value = "";
-                        }
+        function calculatePerSiteStats() {
+            return pokerSites.map(site => {
+                const siteTournaments = tournaments.filter(t => t.siteId === site.id && t.completed);
+                const profitLoss = siteTournaments.reduce((sum, t) => {
+                    const cashout = (t.itmCashout || 0) + (t.bountyCashout || 0);
+                    const cost = t.buyIn + (t.addOnCosts || 0);
+                    return sum + (cashout - cost);
+                }, 0);
+                const totalBuyIns = siteTournaments.reduce((sum, t) => sum + t.buyIn, 0);
+                const siteTransactions = transactions.filter(t => t.siteId === site.id);
+                return {
+                    name: site.name,
+                    currency: site.currency,
+                    bankroll: site.bankroll,
+                    profitLoss,
+                    avgBuyIn: siteTournaments.length ? totalBuyIns / siteTournaments.length : 0,
+                    totalTournaments: siteTournaments.length,
+                    roi: totalBuyIns ? (profitLoss / totalBuyIns) * 100 : 0,
+                    transactions: {
+                        deposits: siteTransactions.reduce((sum, t) => sum + (t.deposit || 0), 0),
+                        withdrawals: siteTransactions.reduce((sum, t) => sum + (t.withdrawal || 0), 0),
+                        taxes: siteTransactions.reduce((sum, t) => sum + (t.tax || 0), 0),
+                        bonuses: siteTransactions.reduce((sum, t) => sum + ((t.instantBonus || 0) + (t.lockedBonus || 0)), 0),
+                        adjustments: siteTransactions.reduce((sum, t) => sum + (t.otherAdjustments || 0), 0)
                     }
                 };
-                reader.readAsText(file);
-            };
-
-            const renderListManager = (title, list, setter, listType = 'string') => (
-                <div className="bg-gray-800 p-4 rounded-lg shadow-md">
-                    <h3 className="text-lg font-semibold mb-3">{title}</h3>
-                    {listType === 'pokerSites' ? (
-                        <div className="flex flex-wrap gap-2 mb-2">
-                            <input type="text" placeholder="Site Name" value={newItem.type === 'pokerSites' ? newItem.name : ''} onChange={(e) => setNewItem({ ...newItem, type: 'pokerSites', name: e.target.value })} className="input-field flex-grow placeholder-gray-400" />
-                            <select value={newItem.type === 'pokerSites' ? newItem.currency : 'INR'} onChange={(e) => setNewItem({ ...newItem, currency: e.target.value })} className="input-field w-24">
-                                {Object.keys(EXCHANGE_RATES).map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                            <button onClick={() => handleAddItem('pokerSites', setter)} className="btn-primary flex-shrink-0">Add</button>
-                        </div>
-                    ) : (
-                        <div className="flex flex-wrap gap-2 mb-2">
-                            <input type="text" placeholder={`New ${title.slice(7,-1)}`} value={newItem.type === title ? newItem.name : ''} onChange={(e) => setNewItem({ ...newItem, type: title, name: e.target.value })} className="input-field flex-grow placeholder-gray-400"/>
-                            <button onClick={() => handleAddItem(title, setter)} className="btn-primary flex-shrink-0">Add</button>
-                        </div>
-                    )}
-                    <ul className="space-y-1 max-h-60 overflow-y-auto">
-                        {list.map((item, index) => (
-                            <li key={listType === 'pokerSites' ? item.id : index} className="flex justify-between items-center bg-gray-700 p-2 rounded">
-                                <span>{listType === 'pokerSites' ? `${item.name} (${item.currency})` : item}</span>
-                                <button onClick={() => handleDeleteItem(listType, setter, listType === 'pokerSites' ? item.id : item)} className="text-danger hover:text-red-400 text-xs">Delete</button>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            );
-
-            return (
-                <div className="space-y-8">
-                    <h2 className="text-3xl font-bold tracking-tight">Manage Application Data</h2>
-
-                     <div className="bg-gray-800 p-6 rounded-lg shadow-md">
-                        <h3 className="text-xl font-semibold mb-4">Backup & Restore</h3>
-                        <p className="text-gray-400 mb-4 text-sm">Export all your data into a single file for backup, or import a file to restore your data. Warning: Importing will overwrite everything.</p>
-                        <div className="flex flex-col sm:flex-row gap-4">
-                            <button onClick={handleExport} className="btn-secondary inline-flex items-center justify-center gap-2">
-                                <Icon name="export" className="w-5 h-5"/> Export All Data
-                            </button>
-                             <input type="file" ref={importFileRef} onChange={handleImport} accept=".json" className="hidden" id="import-file" />
-                            <label htmlFor="import-file" className="btn-secondary inline-flex items-center justify-center gap-2 cursor-pointer">
-                                <Icon name="import" className="w-5 h-5"/> Import from File
-                            </label>
-                        </div>
-                    </div>
-
-                    <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6">
-                        {renderListManager('Manage Poker Sites', pokerSites, setPokerSites, 'pokerSites')}
-                        {renderListManager('Manage Game Types', gameTypes, setGameTypes, 'Game Types')}
-                        {renderListManager('Manage Game Formats', gameFormats, setGameFormats, 'Game Formats')}
-                        {renderListManager('Manage Game Structures', gameStructures, setGameStructures, 'Game Structures')}
-                    </div>
-                </div>
-            );
-        };
-        
-        // --- TRANSACTIONS VIEW ---
-        const TransactionsView = ({ transactions, setTransactions, pokerSites }) => {
-            const [newTx, setNewTx] = useState({
-                date: getTodayDate(), pokerSite: pokerSites[0]?.name || '',
-                deposit: '', withdrawal: '', tax: '', tournamentMoney: '', instantBonus: '', lockedBonus: '', other: ''
             });
-            const [sortConfig, setSortConfig] = useState({ key: 'date', direction: 'descending' });
+        }
 
-            const handleInputChange = (e) => {
-                const { name, value } = e.target;
-                setNewTx(prev => ({ ...prev, [name]: value }));
-            };
-
-            const handleAddTransaction = (e) => {
-                e.preventDefault();
-                if (!newTx.pokerSite) { alert('Please select a poker site.'); return; }
-                const lastTxForSite = transactions.filter(tx => tx.pokerSite === newTx.pokerSite).sort((a, b) => b.id - a.id)[0];
-                const lastBankroll = lastTxForSite ? lastTxForSite.newBankroll : 0;
-                const deposit = parseFloat(newTx.deposit) || 0;
-                const withdrawal = parseFloat(newTx.withdrawal) || 0;
-                const tax = parseFloat(newTx.tax) || 0;
-                const tournamentMoney = parseFloat(newTx.tournamentMoney) || 0;
-                const instantBonus = parseFloat(newTx.instantBonus) || 0;
-                const lockedBonus = parseFloat(newTx.lockedBonus) || 0;
-                const other = parseFloat(newTx.other) || 0;
-                const newBankroll = lastBankroll + deposit - withdrawal - tax + tournamentMoney + instantBonus + lockedBonus + other;
-                const finalTx = { id: Date.now(), date: newTx.date, pokerSite: newTx.pokerSite, deposit, withdrawal, tax, tournamentMoney, instantBonus, lockedBonus, other, newBankroll };
-                setTransactions(prev => [...prev, finalTx]);
-                setNewTx({ date: getTodayDate(), pokerSite: newTx.pokerSite, deposit: '', withdrawal: '', tax: '', tournamentMoney: '', instantBonus: '', lockedBonus: '', other: '' });
-            };
-
-            const sortedTransactions = useMemo(() => {
-                let sortableItems = [...transactions];
-                if (sortConfig.key) {
-                    sortableItems.sort((a, b) => {
-                        if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
-                        if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
-                        return 0;
-                    });
-                }
-                return sortableItems;
-            }, [transactions, sortConfig]);
-
-            const requestSort = (key) => {
-                let direction = 'ascending';
-                if (sortConfig.key === key && sortConfig.direction === 'ascending') direction = 'descending';
-                setSortConfig({ key, direction });
-            };
-
-            const getSortIndicator = (key) => {
-                if (sortConfig.key !== key) return '↕';
-                return sortConfig.direction === 'ascending' ? '▲' : '▼';
-            };
-
-            const renderValue = (value) => {
-                if (value === 0 || !value) return <span className="text-gray-500">-</span>;
-                const color = value > 0 ? 'text-success' : 'text-danger';
-                return <span className={color}>{value.toFixed(2)}</span>;
-            };
-
-            const txFields = [
-                { name: 'deposit', label: 'Deposit (+)' }, { name: 'withdrawal', label: 'Withdrawal (-)' },
-                { name: 'tax', label: 'Tax (-)' }, { name: 'tournamentMoney', label: 'T-Money (+)' },
-                { name: 'instantBonus', label: 'Instant Bonus (+)' }, { name: 'lockedBonus', label: 'Locked Bonus (+)' },
-                { name: 'other', label: 'Other (+/-)' }
-            ];
-
-            return (
-                <div className="space-y-8">
-                    <h2 className="text-3xl font-bold tracking-tight">Transactions</h2>
-                    <form onSubmit={handleAddTransaction} className="bg-gray-800 p-6 rounded-lg shadow-md space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            <div>
-                                <label className="label">Date</label>
-                                <input type="date" name="date" value={newTx.date} onChange={handleInputChange} className="input-field" required/>
-                            </div>
-                            <div>
-                                <label className="label">Poker Site</label>
-                                <select name="pokerSite" value={newTx.pokerSite} onChange={handleInputChange} className="input-field" required>
-                                    <option value="">Select Site</option>
-                                    {pokerSites.map(site => <option key={site.id} value={site.name}>{site.name}</option>)}
-                                </select>
-                            </div>
-                            {txFields.map(f => (
-                                <div key={f.name}>
-                                    <label className="label">{f.label}</label>
-                                    <input type="number" step="0.01" name={f.name} placeholder="0.00" value={newTx[f.name]} onChange={handleInputChange} className="input-field" />
-                                </div>
-                            ))}
-                        </div>
-                        <div className="flex justify-end pt-2">
-                            <button type="submit" className="btn-primary w-full sm:w-auto">Add Transaction</button>
-                        </div>
-                    </form>
-
-                    <div className="bg-gray-800 rounded-lg shadow-md overflow-hidden">
-                        <h3 className="text-xl font-bold p-4">All Transactions</h3>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left">
-                                <thead className="bg-gray-700 text-xs uppercase tracking-wider">
-                                    <tr>
-                                        {['date', 'pokerSite', 'deposit', 'withdrawal', 'tax', 'tournamentMoney', 'instantBonus', 'lockedBonus', 'other', 'newBankroll'].map(key => (
-                                            <th key={key} scope="col" className="p-3 cursor-pointer hover:bg-gray-600" onClick={() => requestSort(key)}>
-                                                {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} <span className="text-gray-400">{getSortIndicator(key)}</span>
-                                            </th>
-                                        ))}
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-700">
-                                    {sortedTransactions.map(tx => {
-                                        const site = pokerSites.find(s => s.name === tx.pokerSite) || { currency: '' };
-                                        return (
-                                            <tr key={tx.id} className="hover:bg-gray-700/50">
-                                                <td className="p-3 whitespace-nowrap">{tx.date}</td>
-                                                <td className="p-3 font-medium">{tx.pokerSite}</td>
-                                                <td className="p-3">{renderValue(tx.deposit)}</td>
-                                                <td className="p-3">{renderValue(-tx.withdrawal)}</td>
-                                                <td className="p-3">{renderValue(-tx.tax)}</td>
-                                                <td className="p-3">{renderValue(tx.tournamentMoney)}</td>
-                                                <td className="p-3">{renderValue(tx.instantBonus)}</td>
-                                                <td className="p-3">{renderValue(tx.lockedBonus)}</td>
-                                                <td className="p-3">{renderValue(tx.other)}</td>
-                                                <td className="p-3 font-semibold text-white">{formatCurrency(tx.newBankroll, site.currency)}</td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-        
-        // --- TOURNAMENTS VIEW & COMPLETED TOURNAMENTS VIEW ---
-        const TournamentTable = ({ tournaments, setTournaments, isResultsView = false }) => {
-            const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'descending' });
-            const [selectedIds, setSelectedIds] = useState(new Set());
-            const [modal, setModal] = useState({ isOpen: false, type: '', data: null });
-
-            const processedTournaments = useMemo(() => {
-                let items = isResultsView ? tournaments.filter(t => t.entries !== null) : tournaments;
-                items = items.map(t => {
-                    const netBuyIn = (t.buyIn - (t.buyInDiscount || 0)) + (t.addon || 0);
-                    const totalCashout = (t.bountyCashout || 0) + (t.itmCashout || 0);
-                    const profitLoss = totalCashout - netBuyIn;
-                    const roi = netBuyIn > 0 ? (profitLoss / netBuyIn) * 100 : 0;
-                    return { ...t, netBuyIn, totalCashout, profitLoss, roi };
-                });
-                if (sortConfig.key) {
-                    items.sort((a, b) => {
-                        const valA = a[sortConfig.key]; const valB = b[sortConfig.key];
-                        if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
-                        if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
-                        return 0;
-                    });
-                }
-                return items;
-            }, [tournaments, sortConfig, isResultsView]);
-            
-            const handleSelectAll = (e) => {
-                if (e.target.checked) setSelectedIds(new Set(processedTournaments.map(t => t.id)));
-                else setSelectedIds(new Set());
-            };
-
-            const handleSelectOne = (id) => {
-                setSelectedIds(prev => {
-                    const newSet = new Set(prev);
-                    if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
-                    return newSet;
-                });
-            };
-
-            const handleDelete = (idsToDelete) => {
-                if (!window.confirm(`Are you sure you want to delete ${idsToDelete.length} tournament(s)?`)) return;
-                setTournaments(prev => prev.filter(t => !idsToDelete.includes(t.id)));
-                if (idsToDelete.length > 1) setSelectedIds(new Set());
-            };
-
-            const handleClearUncompleted = () => {
-                if (!window.confirm('Are you sure you want to delete ALL uncompleted tournaments? This cannot be undone.')) return;
-                setTournaments(prev => prev.filter(t => t.entries !== null));
-            };
-
-            const openModal = (type, tournament = null) => {
-                let initialData = { entries: '', addon: 0, bountyCashout: 0, itmCashout: 0, tournamentMoneyCashout: 0, finishPosition: '' };
-                if (tournament && type === 'edit') {
-                    Object.keys(initialData).forEach(key => { initialData[key] = tournament[key] || initialData[key]; });
-                }
-                setModal({ isOpen: true, type, data: tournament, formData: initialData });
-            };
-
-            const handleUpdateResult = (formData) => {
-                setTournaments(prev => prev.map(t => {
-                    if (t.id === modal.data.id) {
-                        return { ...t,
-                            entries: parseInt(formData.entries), addon: parseFloat(formData.addon) || 0,
-                            bountyCashout: parseFloat(formData.bountyCashout) || 0, itmCashout: parseFloat(formData.itmCashout) || 0,
-                            tournamentMoneyCashout: parseFloat(formData.tournamentMoneyCashout) || 0,
-                            finishPosition: formData.finishPosition ? parseInt(formData.finishPosition) : null,
-                        };
-                    }
-                    return t;
-                }));
-                setModal({ isOpen: false, type: '', data: null });
-            };
-
-            const getTournamentStatus = (tournament) => {
-                if (tournament.entries !== null) return { status: 'Completed', color: 'text-purple-400' };
-                const now = new Date(); const startTime = new Date(`${tournament.date}T${tournament.time}:00`);
-                const diffMs = startTime - now;
-                if (diffMs > 0) {
-                    if (diffMs <= 60 * 60 * 1000) return { status: 'Starting Soon', color: 'text-warning' };
-                    return { status: 'Upcoming', color: 'text-gray-400' };
-                } else {
-                    const elapsedMs = -diffMs;
-                    if (elapsedMs <= 60 * 60 * 1000) return { status: 'Just Started', color: 'text-success' };
-                    return { status: 'In Progress', color: 'text-blue-400' };
-                }
-            };
-            
-            const requestSort = (key) => {
-                let direction = 'ascending';
-                if (sortConfig.key === key && sortConfig.direction === 'ascending') direction = 'descending';
-                setSortConfig({ key, direction });
-            };
-            const getSortIndicator = (key) => sortConfig.key === key ? (sortConfig.direction === 'ascending' ? '▲' : '▼') : '↕';
-
-            const headers = [ { key: 'date', label: 'Date' } ];
-            if (!isResultsView) headers.push({ key: 'status', label: 'Status', sortable: false });
-            headers.push(
-                { key: 'name', label: 'Name' }, { key: 'pokerSite', label: 'Site' },
-                { key: 'buyIn', label: 'Buy-in' }, { key: 'gtd', label: 'GTD' },
-                { key: 'entries', label: 'Entries' }
-            );
-            if (isResultsView) {
-                headers.push(
-                    { key: 'finishPosition', label: 'Finish' }, { key: 'totalCashout', label: 'Cashout' },
-                    { key: 'profitLoss', label: 'Profit/Loss' }, { key: 'roi', label: 'ROI (%)' }
-                );
+        // Tournaments
+        function openAddTournamentModal() {
+            if (!pokerSites.length) {
+                showNotification("Please add a poker site first.", "error");
+                return;
             }
-            headers.push({ key: 'actions', label: 'Actions', sortable: false });
-            
-            const pokerSites = JSON.parse(localStorage.getItem('poker_sites') || '[]');
+            openModal(`
+                <h3>Add Tournament</h3>
+                <input type="datetime-local" id="t-date">
+                <select id="t-site">${pokerSites.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select>
+                <input type="number" id="t-buyin" placeholder="Buy-in" step="0.01" min="0">
+                <input type="number" id="t-gtd" placeholder="GTD" step="0.01" min="0">
+                <input type="number" id="t-discount" placeholder="Discount" step="0.01" min="0">
+                <select id="t-gameType">${gameTypes.map(gt => `<option>${gt}</option>`).join('')}</select>
+                <select id="t-format">${formats.map(f => `<option>${f}</option>`).join('')}</select>
+                <select id="t-structure">${structures.map(s => `<option>${s}</option>`).join('')}</select>
+                <button onclick="addTournament()">Add</button>
+                <button onclick="closeModal()">Cancel</button>
+            `);
+        }
 
-            return (
-                <div>
-                    {!isResultsView && (
-                        <div className="mb-4 flex flex-wrap gap-2 items-center">
-                            <button onClick={() => handleDelete(Array.from(selectedIds))} disabled={selectedIds.size === 0} className="btn-danger inline-flex items-center gap-2">
-                               <Icon name="delete" className="w-4 h-4" /> Delete Selected
-                            </button>
-                            <button onClick={handleClearUncompleted} className="btn-secondary">Clear Uncompleted MTTs</button>
-                        </div>
-                    )}
-                    <div className="overflow-x-auto bg-gray-800 rounded-lg shadow-md">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-700 text-xs uppercase tracking-wider">
-                                <tr>
-                                    <th scope="col" className="p-2 text-center"><input type="checkbox" onChange={handleSelectAll} checked={selectedIds.size > 0 && selectedIds.size === processedTournaments.length} className="checkbox"/></th>
-                                    {headers.map(h => (
-                                        <th key={h.key} scope="col" className="p-3" onClick={() => h.sortable !== false && requestSort(h.key)}>
-                                            <span className={h.sortable !== false ? 'cursor-pointer hover:text-white' : ''}>
-                                                {h.label} {h.sortable !== false && <span className="text-gray-400">{getSortIndicator(h.key)}</span>}
-                                            </span>
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-700">
-                                {processedTournaments.map((t, index) => {
-                                    const site = pokerSites.find(s => s.name === t.pokerSite) || { currency: '' };
-                                    const isCompleted = t.entries !== null;
-                                    let rowBgClass = index % 2 === 0 ? 'bg-gray-800' : 'bg-gray-800/50';
-                                    let profitColor = t.profitLoss > 0 ? 'text-success' : t.profitLoss < 0 ? 'text-danger' : '';
-                                    let hoverBgClass = 'hover:bg-gray-700/70';
-
-                                    const status = !isResultsView ? getTournamentStatus(t) : null;
-
-                                    return (
-                                        <tr key={t.id} className={`${rowBgClass} ${hoverBgClass}`}>
-                                            <td className="p-2 text-center"><input type="checkbox" checked={selectedIds.has(t.id)} onChange={() => handleSelectOne(t.id)} className="checkbox"/></td>
-                                            <td className="p-3 whitespace-nowrap">{t.date}</td>
-                                            {!isResultsView && <td className="p-3"><span className={`${status.color} font-medium`}>{status.status}</span></td>}
-                                            <td className="p-3 font-medium text-white">{t.name}</td>
-                                            <td className="p-3">{t.pokerSite}</td>
-                                            <td className="p-3">{formatCurrency(t.buyIn, site.currency)}</td>
-                                            <td className="p-3">{formatCurrency(t.gtd, site.currency)}</td>
-                                            <td className="p-3">{t.entries || '-'}</td>
-                                            {isResultsView && (
-                                                <>
-                                                    <td className="p-3">{t.finishPosition || '-'}</td>
-                                                    <td className="p-3">{formatCurrency(t.totalCashout, site.currency)}</td>
-                                                    <td className={`p-3 font-semibold ${profitColor}`}>{formatCurrency(t.profitLoss, site.currency)}</td>
-                                                    <td className={`p-3 font-semibold ${profitColor}`}>{t.roi.toFixed(2)}%</td>
-                                                </>
-                                            )}
-                                            <td className="p-3 flex gap-2">
-                                                {!isCompleted ? (
-                                                    <button onClick={() => openModal('update', t)} className="btn-action-primary">Update</button>
-                                                ) : (
-                                                    <div className="flex gap-2">
-                                                        <button onClick={() => openModal('edit', t)} className="btn-action-secondary">Edit</button>
-                                                        <button onClick={() => openModal('view', t)} className="btn-action-secondary">View</button>
-                                                    </div>
-                                                )}
-                                                <button onClick={() => handleDelete([t.id])} className="btn-action-danger">Del</button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                    {modal.isOpen && modal.type === 'view' && (
-                        <Modal isOpen={modal.isOpen} onClose={() => setModal({isOpen: false})} title={`View: ${modal.data.name}`}>
-                            <div className="space-y-2 text-gray-300">
-                                {Object.entries(modal.data).map(([key, value]) => (
-                                    <div key={key} className="grid grid-cols-2">
-                                        <strong className="capitalize text-gray-100">{key.replace(/([A-Z])/g, ' $1')}:</strong>
-                                        <span>{value === null ? 'N/A' : String(value)}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </Modal>
-                    )}
-                    {modal.isOpen && (modal.type === 'update' || modal.type === 'edit') && (
-                        <UpdateResultModal modal={modal} setModal={setModal} onSave={handleUpdateResult} />
-                    )}
-                </div>
-            );
-        };
-
-        const UpdateResultModal = ({ modal, setModal, onSave }) => {
-            const [formData, setFormData] = useState(modal.formData);
-            const handleChange = e => setFormData(prev => ({ ...prev, [name]: e.target.value }));
-            const handleSubmit = e => { e.preventDefault(); if (!formData.entries) { alert('Entries field is mandatory to complete a tournament.'); return; } onSave(formData); };
-            const fields = [ { name: 'entries', label: 'Total Entries', type: 'number', required: true }, { name: 'finishPosition', label: 'Finish Position', type: 'number' }, { name: 'itmCashout', label: 'ITM Cashout', type: 'number' }, { name: 'bountyCashout', label: 'Bounty Cashout', type: 'number' }, { name: 'addon', label: 'Add-on / Re-entry Cost', type: 'number' }, { name: 'tournamentMoneyCashout', label: 'Tournament Money Won', type: 'number' }, ];
-            return (
-                <Modal isOpen={modal.isOpen} onClose={() => setModal({isOpen: false})} title={`${modal.type === 'update' ? 'Update' : 'Edit'} Result for: ${modal.data.name}`}>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {fields.map(f => (
-                                <div key={f.name}>
-                                    <label className="label">{f.label}{f.required && ' *'}</label>
-                                    <input type={f.type} name={f.name} value={formData[f.name]} onChange={handleChange} className="input-field" placeholder="0" required={f.required} step="0.01"/>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="flex justify-end gap-2 pt-4">
-                            <button type="button" onClick={() => setModal({isOpen: false})} className="btn-secondary">Cancel</button>
-                            <button type="submit" className="btn-primary">Save Result</button>
-                        </div>
-                    </form>
-                </Modal>
-            );
-        };
-
-        const TournamentsView = (props) => {
-            const { tournaments, setTournaments, pokerSites, gameTypes, gameFormats, gameStructures } = props;
-            const [newMtt, setNewMtt] = useState({
-                date: getTodayDate(), time: getNowTime(), pokerSite: pokerSites[0]?.name || '', buyIn: '', gtd: '',
-                buyInDiscount: 0, gameType: gameTypes[0] || '', gameFormat: gameFormats[0] || '', gameStructure: gameStructures[0] || ''
+        function addTournament() {
+            const date = new Date(document.getElementById('t-date').value);
+            const siteId = document.getElementById('t-site').value;
+            const buyIn = parseFloat(document.getElementById('t-buyin').value) || 0;
+            const gtd = parseFloat(document.getElementById('t-gtd').value) || 0;
+            const discount = parseFloat(document.getElementById('t-discount').value) || 0;
+            const gameType = document.getElementById('t-gameType').value;
+            const format = document.getElementById('t-format').value;
+            const structure = document.getElementById('t-structure').value;
+            if (!date || !buyIn) {
+                showNotification("Date and Buy-in are required.", "error");
+                return;
+            }
+            const site = getSiteById(siteId);
+            const dayAbbr = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][date.getDay()];
+            const name = `${dayAbbr}-${site.name}-${formatCurrency(buyIn, site.currency)}`;
+            tournaments.push({
+                id: tournamentIdCounter++,
+                date: date.toISOString(),
+                siteId,
+                buyIn,
+                gtd,
+                discount,
+                gameType,
+                format,
+                structure,
+                name,
+                completed: false
             });
-            const handleInputChange = (e) => setNewMtt(prev => ({...prev, [e.target.name]: e.target.value}));
-            const handleAddTournament = (e) => {
-                e.preventDefault();
-                const { date, pokerSite, buyIn, gtd, time } = newMtt;
-                if (!pokerSite || !buyIn || !gtd) return;
-                const site = pokerSites.find(s => s.name === pokerSite);
-                const day = new Date(date).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
-                const newTournament = { ...newMtt, id: Date.now(), buyIn: parseFloat(buyIn), buyInDiscount: parseFloat(newMtt.buyInDiscount) || 0, gtd: parseFloat(gtd), name: `${day}-${pokerSite}-${formatCurrency(parseFloat(buyIn), site?.currency || 'INR')}`, entries: null, addon: 0, bountyCashout: 0, itmCashout: 0, tournamentMoneyCashout: 0, finishPosition: null };
-                setTournaments(prev => [...prev, newTournament]);
-            };
-            return (
-                <div className="space-y-8">
-                    <h2 className="text-3xl font-bold tracking-tight">Tournaments</h2>
-                    <form onSubmit={handleAddTournament} className="bg-gray-800 p-6 rounded-lg shadow-md space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                            <div><label className="label">Date</label><input type="date" name="date" value={newMtt.date} onChange={handleInputChange} className="input-field" required/></div>
-                            <div><label className="label">Time</label><input type="time" name="time" value={newMtt.time} onChange={handleInputChange} className="input-field" required/></div>
-                            <div><label className="label">Poker Site</label><select name="pokerSite" value={newMtt.pokerSite} onChange={handleInputChange} className="input-field" required><option value="">Select Site</option>{pokerSites.map(s=><option key={s.id} value={s.name}>{s.name}</option>)}</select></div>
-                            <div><label className="label">Buy-In</label><input type="number" step="0.01" name="buyIn" placeholder="5000" value={newMtt.buyIn} onChange={handleInputChange} className="input-field" required/></div>
-                            <div><label className="label">Buy-In Discount</label><input type="number" step="0.01" name="buyInDiscount" placeholder="0" value={newMtt.buyInDiscount} onChange={handleInputChange} className="input-field"/></div>
-                            <div><label className="label">GTD</label><input type="number" step="0.01" name="gtd" placeholder="1000000" value={newMtt.gtd} onChange={handleInputChange} className="input-field" required/></div>
-                            <div><label className="label">Game Type</label><select name="gameType" value={newMtt.gameType} onChange={handleInputChange} className="input-field" required>{gameTypes.map(gt=><option key={gt} value={gt}>{gt}</option>)}</select></div>
-                            <div><label className="label">Game Format</label><select name="gameFormat" value={newMtt.gameFormat} onChange={handleInputChange} className="input-field" required>{gameFormats.map(gf=><option key={gf} value={gf}>{gf}</option>)}</select></div>
-                            <div><label className="label">Game Structure</label><select name="gameStructure" value={newMtt.gameStructure} onChange={handleInputChange} className="input-field" required>{gameStructures.map(gs=><option key={gs} value={gs}>{gs}</option>)}</select></div>
-                        </div>
-                        <div className="flex justify-end pt-2">
-                           <button type="submit" disabled={!newMtt.pokerSite || !newMtt.buyIn || !newMtt.gtd} className="btn-primary w-full sm:w-auto">Add Tournament</button>
-                        </div>
-                    </form>
-                    <div className="bg-gray-800 rounded-lg shadow-md overflow-hidden p-4">
-                        <h3 className="text-xl font-bold mb-4">Upcoming & In-Progress Tournaments</h3>
-                        <TournamentTable {...props} />
-                    </div>
-                </div>
-            );
-        };
+            saveData();
+            closeModal();
+            showNotification("Tournament added.", "success");
+            updateUI();
+        }
 
-        const CompletedTournamentsView = (props) => (
-            <div className="space-y-6">
-                <h2 className="text-3xl font-bold tracking-tight">Completed Tournaments</h2>
-                <p className="text-gray-400">This table shows only completed tournaments. You can view, edit, or delete them here.</p>
-                <div className="bg-gray-800 rounded-lg shadow-md overflow-hidden p-4">
-                     <TournamentTable {...props} isResultsView={true} />
-                </div>
-            </div>
-        );
+        function openUpdateTournamentModal(id) {
+            const t = tournaments.find(t => t.id === id);
+            openModal(`
+                <h3>Update Results</h3>
+                <p>${t.name}</p>
+                <input type="number" id="t-entries" placeholder="Entries" min="0" value="${t.entries || ''}">
+                <input type="number" id="t-finish" placeholder="Finish Position" min="1" value="${t.finishPosition || ''}">
+                <input type="number" id="t-itm" placeholder="ITM Cashout" step="0.01" min="0" value="${t.itmCashout || ''}">
+                <input type="number" id="t-bounty" placeholder="Bounty Cashout" step="0.01" min="0" value="${t.bountyCashout || ''}">
+                <input type="number" id="t-addon" placeholder="Add-on Costs" step="0.01" min="0" value="${t.addOnCosts || ''}">
+                <input type="number" id="t-money" placeholder="Tournament Money Won" step="0.01" min="0" value="${t.tournamentMoneyWon || ''}">
+                <button onclick="updateTournament(${id})">Update</button>
+                <button onclick="closeModal()">Cancel</button>
+            `);
+        }
 
-        // --- DASHBOARD VIEW ---
-        const DashboardView = ({ tournaments, transactions, pokerSites }) => {
-            const [expandedCards, setExpandedCards] = useState({});
-            const toggleCard = (siteName) => setExpandedCards(prev => ({...prev, [siteName]: !prev[siteName]}));
+        function updateTournament(id) {
+            const t = tournaments.find(t => t.id === id);
+            t.entries = parseInt(document.getElementById('t-entries').value) || 0;
+            t.finishPosition = parseInt(document.getElementById('t-finish').value) || 0;
+            t.itmCashout = parseFloat(document.getElementById('t-itm').value) || 0;
+            t.bountyCashout = parseFloat(document.getElementById('t-bounty').value) || 0;
+            t.addOnCosts = parseFloat(document.getElementById('t-addon').value) || 0;
+            t.tournamentMoneyWon = parseFloat(document.getElementById('t-money').value) || 0;
+            t.completed = true;
+            saveData();
+            closeModal();
+            showNotification("Tournament updated.", "success");
+            updateUI();
+        }
 
-            const dashboardData = useMemo(() => {
-                const completedTournaments = tournaments.filter(t => t.entries !== null);
-                let overall = { totalBankroll: 0, totalProfitLoss: 0, totalNetBuyIns: 0, avgBuyIn: 0, completedCount: completedTournaments.length, roi: 0 };
-                const perSite = pokerSites.map(site => {
-                    const lastTx = transactions.filter(t => t.pokerSite === site.name).sort((a,b) => b.id - a.id)[0];
-                    const bankroll = lastTx ? lastTx.newBankroll : 0;
-                    const txOverview = transactions.filter(t => t.pokerSite === site.name).reduce((acc, tx) => {
-                        acc.deposits += tx.deposit || 0; acc.withdrawals += tx.withdrawal || 0;
-                        acc.taxes += tx.tax || 0; acc.bonuses += (tx.instantBonus || 0) + (tx.lockedBonus || 0) + (tx.tournamentMoney || 0);
-                        acc.other += tx.other || 0; return acc;
-                    }, { deposits: 0, withdrawals: 0, taxes: 0, bonuses: 0, other: 0 });
+        function deleteTournament(id) {
+            if (confirm("Are you sure you want to delete this tournament?")) {
+                tournaments = tournaments.filter(t => t.id !== id);
+                saveData();
+                showNotification("Tournament deleted.", "success");
+                updateUI();
+            }
+        }
 
-                    const siteMtts = completedTournaments.filter(t => t.pokerSite === site.name);
-                    let totalNetBuyIns = 0; let totalCashouts = 0;
-                    siteMtts.forEach(t => {
-                        totalNetBuyIns += (t.buyIn - (t.buyInDiscount || 0)) + (t.addon || 0);
-                        totalCashouts += (t.itmCashout || 0) + (t.bountyCashout || 0);
-                    });
-                    const profitLoss = totalCashouts - totalNetBuyIns;
-                    const roi = totalNetBuyIns > 0 ? (profitLoss / totalNetBuyIns) * 100 : 0;
-                    const avgBuyIn = siteMtts.length > 0 ? totalNetBuyIns / siteMtts.length : 0;
-                    const rate = EXCHANGE_RATES[site.currency] || 1;
-                    overall.totalBankroll += bankroll * rate;
-                    overall.totalNetBuyIns += totalNetBuyIns * rate;
-                    overall.totalProfitLoss += profitLoss * rate;
-                    return { ...site, bankroll, profitLoss, roi, avgBuyIn, completedCount: siteMtts.length, txOverview };
-                });
-                overall.roi = overall.totalNetBuyIns > 0 ? (overall.totalProfitLoss / overall.totalNetBuyIns) * 100 : 0;
-                overall.avgBuyIn = overall.completedCount > 0 ? overall.totalNetBuyIns / overall.completedCount : 0;
-                return { overall, perSite };
-            }, [tournaments, transactions, pokerSites]);
+        function clearUncompletedTournaments() {
+            if (confirm("Are you sure you want to clear all uncompleted tournaments?")) {
+                tournaments = tournaments.filter(t => t.completed);
+                saveData();
+                showNotification("Uncompleted tournaments cleared.", "success");
+                updateUI();
+            }
+        }
 
-            const StatCard = ({ title, value, color = 'text-white' }) => (
-                <div className="bg-gray-700/50 p-4 rounded-lg text-center shadow-md">
-                    <p className="text-sm text-gray-400">{title}</p>
-                    <p className={`text-2xl font-bold ${color}`}>{value}</p>
-                </div>
-            );
-            
-            const ProfitLossStatCard = ({ title, value, currency, subValue, subLabel }) => {
-                const color = value > 0 ? 'text-success' : value < 0 ? 'text-danger' : 'text-white';
-                return (
-                    <div className="bg-gray-700/50 p-4 rounded-lg text-center shadow-md flex flex-col justify-between">
-                        <div>
-                            <p className="text-sm text-gray-400">{title}</p>
-                            <p className={`text-2xl font-bold ${color}`}>{formatCurrency(value, currency)}</p>
-                        </div>
-                        <p className={`text-sm font-semibold mt-1 ${color}`}>{subValue.toFixed(2)}{subLabel}</p>
-                    </div>
-                );
-            };
+        function getTournamentStatus(t) {
+            const now = new Date();
+            const date = new Date(t.date);
+            const diff = (date - now) / 60000; // minutes
+            if (t.completed) return "Completed";
+            if (diff > 30) return "Upcoming";
+            if (diff > 0) return "Starting Soon";
+            if (diff > -5) return "Just Started";
+            return "In Progress";
+        }
 
-            return (
-                <div className="space-y-8">
-                    <div>
-                        <h2 className="text-3xl font-bold tracking-tight mb-4">Overall Performance (in INR)</h2>
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                            <StatCard title="Total Bankroll" value={formatCurrency(dashboardData.overall.totalBankroll, 'INR')} />
-                            <ProfitLossStatCard title="Total Profit/Loss" value={dashboardData.overall.totalProfitLoss} currency="INR" subValue={dashboardData.overall.roi} subLabel="% ROI"/>
-                            <StatCard title="Avg. Buy-In" value={formatCurrency(dashboardData.overall.avgBuyIn, 'INR')} />
-                            <StatCard title="Completed MTTs" value={dashboardData.overall.completedCount} />
-                        </div>
-                    </div>
+        // Transactions
+        function openAddTransactionModal() {
+            if (!pokerSites.length) {
+                showNotification("Please add a poker site first.", "error");
+                return;
+            }
+            openModal(`
+                <h3>Add Transaction</h3>
+                <input type="datetime-local" id="tr-date">
+                <select id="tr-site">${pokerSites.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select>
+                <input type="number" id="tr-deposit" placeholder="Deposit" step="0.01" min="0">
+                <input type="number" id="tr-withdrawal" placeholder="Withdrawal" step="0.01" min="0">
+                <input type="number" id="tr-tax" placeholder="Tax" step="0.01" min="0">
+                <input type="number" id="tr-tmoney" placeholder="Tournament Money" step="0.01" min="0">
+                <input type="number" id="tr-ibonus" placeholder="Instant Bonus" step="0.01" min="0">
+                <input type="number" id="tr-lbonus" placeholder="Locked Bonus" step="0.01" min="0">
+                <input type="number" id="tr-adjust" placeholder="Other Adjustments" step="0.01">
+                <button onclick="addTransaction()">Add</button>
+                <button onclick="closeModal()">Cancel</button>
+            `);
+        }
 
-                    <div>
-                        <h2 className="text-2xl font-bold mb-4">Per-Site Performance</h2>
-                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {dashboardData.perSite.map(site => (
-                                <div key={site.id} className="bg-gray-800 rounded-lg p-5 space-y-4 shadow-lg">
-                                    <h3 className="text-xl font-bold">{site.name}</h3>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <StatCard title="Bankroll" value={formatCurrency(site.bankroll, site.currency)} />
-                                        <StatCard title="Avg. Buy-In" value={formatCurrency(site.avgBuyIn, site.currency)} />
-                                        <ProfitLossStatCard title="P/L (MTTs)" value={site.profitLoss} currency={site.currency} subValue={site.roi} subLabel="% ROI" />
-                                        <StatCard title="MTTs Played" value={site.completedCount} />
-                                    </div>
+        function addTransaction() {
+            const date = new Date(document.getElementById('tr-date').value);
+            const siteId = document.getElementById('tr-site').value;
+            const deposit = parseFloat(document.getElementById('tr-deposit').value) || 0;
+            const withdrawal = parseFloat(document.getElementById('tr-withdrawal').value) || 0;
+            const tax = parseFloat(document.getElementById('tr-tax').value) || 0;
+            const tmoney = parseFloat(document.getElementById('tr-tmoney').value) || 0;
+            const ibonus = parseFloat(document.getElementById('tr-ibonus').value) || 0;
+            const lbonus = parseFloat(document.getElementById('tr-lbonus').value) || 0;
+            const adjust = parseFloat(document.getElementById('tr-adjust').value) || 0;
+            if (!date) {
+                showNotification("Date is required.", "error");
+                return;
+            }
+            const site = getSiteById(siteId);
+            const change = deposit - withdrawal - tax + tmoney + ibonus + lbonus + adjust;
+            site.bankroll = (site.bankroll || 0) + change;
+            transactions.push({
+                id: transactionIdCounter++,
+                date: date.toISOString(),
+                siteId,
+                deposit,
+                withdrawal,
+                tax,
+                tournamentMoney: tmoney,
+                instantBonus: ibonus,
+                lockedBonus: lbonus,
+                otherAdjustments: adjust
+            });
+            saveData();
+            closeModal();
+            showNotification("Transaction added.", "success");
+            updateUI();
+        }
 
-                                    <div className="pt-2">
-                                        <button onClick={() => toggleCard(site.name)} className="w-full text-left text-sm font-semibold text-gray-300 hover:text-white flex justify-between items-center">
-                                            <span>Total Transactions Overview</span>
-                                            <span className="transform transition-transform">{expandedCards[site.name] ? '−' : '+'}</span>
-                                        </button>
-                                        <div className={`collapsible-content ${expandedCards[site.name] ? 'expanded' : ''} pt-2`}>
-                                            <div className="text-xs space-y-1 text-gray-300 bg-gray-900 p-3 rounded">
-                                                <p className="flex justify-between"><span>Deposits:</span> <span className="text-success">{formatCurrency(site.txOverview.deposits, site.currency)}</span></p>
-                                                <p className="flex justify-between"><span>Withdrawals:</span> <span className="text-danger">{formatCurrency(site.txOverview.withdrawals, site.currency)}</span></p>
-                                                <p className="flex justify-between"><span>Taxes:</span> <span className="text-danger">{formatCurrency(site.txOverview.taxes, site.currency)}</span></p>
-                                                <p className="flex justify-between"><span>Bonuses/T-Money:</span> <span className="text-success">{formatCurrency(site.txOverview.bonuses, site.currency)}</span></p>
-                                                <p className="flex justify-between"><span>Other:</span> <span>{formatCurrency(site.txOverview.other, site.currency)}</span></p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            );
-        };
+        // Results
+        function updateResults() {
+            const tbody = document.querySelector('#results-table tbody');
+            tbody.innerHTML = tournaments.filter(t => t.completed).map(t => {
+                const site = getSiteById(t.siteId);
+                const cashout = (t.itmCashout || 0) + (t.bountyCashout || 0);
+                const cost = t.buyIn + (t.addOnCosts || 0);
+                const profitLoss = cashout - cost;
+                const roi = cost ? (profitLoss / cost) * 100 : 0;
+                return `
+                    <tr>
+                        <td>${new Date(t.date).toLocaleDateString()}</td>
+                        <td>${t.name}</td>
+                        <td>${site.name}</td>
+                        <td>${formatCurrency(t.buyIn, site.currency)}</td>
+                        <td>${formatCurrency(t.gtd, site.currency)}</td>
+                        <td>${t.entries || '-'}</td>
+                        <td>${t.finishPosition || '-'}</td>
+                        <td>${formatCurrency(cashout, site.currency)}</td>
+                        <td class="${profitLoss >= 0 ? 'positive' : 'negative'}">${formatCurrency(profitLoss, site.currency)}</td>
+                        <td>${roi.toFixed(2)}%</td>
+                        <td>
+                            <button onclick="openUpdateTournamentModal(${t.id})">Edit</button>
+                            <button class="delete-btn" onclick="deleteTournament(${t.id})">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
 
-        // --- MAIN APP COMPONENT ---
-        const App = () => {
-            const [view, setView] = useState('dashboard');
-            const [tournaments, setTournaments] = useLocalStorage('poker_tournaments', []);
-            const [transactions, setTransactions] = useLocalStorage('poker_transactions', []);
-            const [pokerSites, setPokerSites] = useLocalStorage('poker_sites', DEFAULT_POKER_SITES);
-            const [gameTypes, setGameTypes] = useLocalStorage('poker_gameTypes', DEFAULT_GAME_TYPES);
-            const [gameFormats, setGameFormats] = useLocalStorage('poker_gameFormats', DEFAULT_GAME_FORMATS);
-            const [gameStructures, setGameStructures] = useLocalStorage('poker_gameStructures', DEFAULT_GAME_STRUCTURES);
-            
-            const allSetters = { setTournaments, setTransactions, setPokerSites, setGameTypes, setGameFormats, setGameStructures };
+        // Manage
+        function openAddSiteModal() {
+            openModal(`
+                <h3>Add Poker Site</h3>
+                <input type="text" id="s-name" placeholder="Site Name">
+                <select id="s-currency">${currencies.map(c => `<option>${c}</option>`).join('')}</select>
+                <button onclick="addSite()">Add</button>
+                <button onclick="closeModal()">Cancel</button>
+            `);
+        }
 
-            const commonProps = { tournaments, transactions, pokerSites, gameTypes, gameFormats, gameStructures, ...allSetters };
+        function addSite() {
+            const name = document.getElementById('s-name').value.trim();
+            const currency = document.getElementById('s-currency').value;
+            if (!name) {
+                showNotification("Site name is required.", "error");
+                return;
+            }
+            pokerSites.push({ id: siteIdCounter++, name, currency, bankroll: 0 });
+            saveData();
+            closeModal();
+            showNotification("Site added.", "success");
+            updateUI();
+        }
 
-            const renderView = () => {
-                switch (view) {
-                    case 'tournaments': return <TournamentsView {...commonProps} />;
-                    case 'transactions': return <TransactionsView {...commonProps} />;
-                    case 'completed_tournaments': return <CompletedTournamentsView {...commonProps} />;
-                    case 'manage': return <ManageView {...commonProps} />;
-                    case 'dashboard': default: return <DashboardView {...commonProps} />;
+        function deleteSite(id) {
+            if (tournaments.some(t => t.siteId === id) || transactions.some(t => t.siteId === id)) {
+                showNotification("Cannot delete site with linked tournaments or transactions.", "error");
+                return;
+            }
+            if (confirm("Are you sure you want to delete this site?")) {
+                pokerSites = pokerSites.filter(s => s.id !== id);
+                saveData();
+                showNotification("Site deleted.", "success");
+                updateUI();
+            }
+        }
+
+        function updateManage() {
+            document.getElementById('sites-list').innerHTML = pokerSites.map(s => `
+                <p>${s.name} (${s.currency}) <button class="delete-btn" onclick="deleteSite(${s.id})">Delete</button></p>
+            `).join('');
+            document.getElementById('game-types').innerHTML = `<h4>Game Types</h4>${gameTypes.map(gt => `
+                <p>${gt} <button class="delete-btn" onclick="deleteConfig('gameTypes', '${gt}')">Delete</button></p>
+            `).join('')}<button onclick="addConfig('gameTypes')">Add</button>`;
+            document.getElementById('formats').innerHTML = `<h4>Formats</h4>${formats.map(f => `
+                <p>${f} <button class="delete-btn" onclick="deleteConfig('formats', '${f}')">Delete</button></p>
+            `).join('')}<button onclick="addConfig('formats')">Add</button>`;
+            document.getElementById('structures').innerHTML = `<h4>Structures</h4>${structures.map(s => `
+                <p>${s} <button class="delete-btn" onclick="deleteConfig('structures', '${s}')">Delete</button></p>
+            `).join('')}<button onclick="addConfig('structures')">Add</button>`;
+        }
+
+        function addConfig(type) {
+            const value = prompt(`Enter new ${type.slice(0, -1)}:`);
+            if (value && !window[type].includes(value)) {
+                window[type].push(value);
+                saveData();
+                updateUI();
+            }
+        }
+
+        function deleteConfig(type, value) {
+            if (confirm(`Delete ${value}?`)) {
+                window[type] = window[type].filter(v => v !== value);
+                saveData();
+                updateUI();
+            }
+        }
+
+        function exportData() {
+            const data = JSON.stringify({ pokerSites, tournaments, transactions, gameTypes, formats, structures, siteIdCounter, tournamentIdCounter, transactionIdCounter });
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'poker_manager_data.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData(event) {
+            if (confirm("Importing will overwrite existing data. Continue?")) {
+                const file = event.target.files[0];
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const data = JSON.parse(reader.result);
+                    Object.assign(window, data);
+                    saveData();
+                    showNotification("Data imported.", "success");
+                    updateUI();
+                };
+                reader.readAsText(file);
+            }
+        }
+
+        // CSV Export and Import
+        function exportTournamentsCSV() {
+            const completedTournaments = tournaments.filter(t => t.completed);
+            const headers = ['Date', 'Time', 'Site', 'Buyin', 'Discount', 'Total Entries', 'Total Buyin', 'Bounty', 'Cashout', 'Place', 'Profit/Losses', 'Actual Discount'];
+            const rows = completedTournaments.map(t => {
+                const site = getSiteById(t.siteId);
+                const date = new Date(t.date);
+                const totalEntries = t.addOnCosts > 0 ? Math.round(1 + t.addOnCosts / t.buyIn) : 1;
+                const totalBuyin = t.buyIn * totalEntries;
+                const cashout = (t.itmCashout || 0) + (t.bountyCashout || 0);
+                const profitLoss = cashout - totalBuyin;
+                return [
+                    date.toLocaleDateString(),
+                    date.toLocaleTimeString(),
+                    site.name,
+                    formatCurrency(t.buyIn, site.currency),
+                    t.discount ? formatCurrency(t.discount, site.currency) : '',
+                    totalEntries,
+                    formatCurrency(totalBuyin, site.currency),
+                    t.bountyCashout ? formatCurrency(t.bountyCashout, site.currency) : '',
+                    t.itmCashout ? formatCurrency(t.itmCashout, site.currency) : '',
+                    t.finishPosition || '',
+                    formatCurrency(profitLoss, site.currency),
+                    ''
+                ].join(',');
+            });
+            const csv = [headers.join(','), ...rows].join('\n');
+            downloadCSV(csv, 'tournaments.csv');
+        }
+
+        function exportTransactionsCSV() {
+            const headers = ['Date', 'Transaction', 'Amount', 'Site', 'Notes'];
+            const rows = transactions.map(t => {
+                const site = getSiteById(t.siteId);
+                let transactionType = '';
+                let amount = 0;
+                if (t.deposit > 0) {
+                    transactionType = 'Deposit';
+                    amount = t.deposit;
+                } else if (t.withdrawal > 0) {
+                    transactionType = 'Withdrawal';
+                    amount = t.withdrawal;
+                } else if (t.tournamentMoney > 0) {
+                    transactionType = 'Tournament Money';
+                    amount = t.tournamentMoney;
+                } else if (t.instantBonus > 0) {
+                    transactionType = 'Bonus';
+                    amount = t.instantBonus;
+                } else if (t.lockedBonus > 0) {
+                    transactionType = 'Locked Bonus';
+                    amount = t.lockedBonus;
+                } else if (t.otherAdjustments != 0) {
+                    transactionType = 'Others';
+                    amount = t.otherAdjustments;
                 }
+                const date = new Date(t.date).toLocaleDateString();
+                return [
+                    date,
+                    transactionType,
+                    formatCurrency(amount, site.currency),
+                    site.name,
+                    ''
+                ].join(',');
+            });
+            const csv = [headers.join(','), ...rows].join('\n');
+            downloadCSV(csv, 'transactions.csv');
+        }
+
+        function downloadCSV(csv, filename) {
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function parseCSV(csvString) {
+            const lines = csvString.split('\n').filter(line => line.trim() !== '');
+            const headers = lines[0].split(',').map(h => h.trim());
+            const data = lines.slice(1).map(line => {
+                const values = line.split(',').map(v => v.trim());
+                const obj = {};
+                headers.forEach((header, index) => {
+                    obj[header] = values[index];
+                });
+                return obj;
+            });
+            return data;
+        }
+
+        function importTournamentsCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                const csvString = reader.result;
+                const data = parseCSV(csvString);
+                data.forEach(row => {
+                    try {
+                        const dateStr = row['Date'] + ' ' + row['Time'];
+                        const date = new Date(dateStr);
+                        if (isNaN(date)) throw new Error('Invalid date');
+                        const siteName = row['Site'];
+                        const siteId = getOrCreateSiteId(siteName);
+                        const buyIn = parseCurrency(row['Buyin']);
+                        const discount = row['Discount'] ? parseCurrency(row['Discount']) : 0;
+                        const totalEntries = parseInt(row['Total Entries']) || 1;
+                        const bountyCashout = row['Bounty'] ? parseCurrency(row['Bounty']) : 0;
+                        const itmCashout = row['Cashout'] ? parseCurrency(row['Cashout']) : 0;
+                        const finishPosition = row['Place'] ? parseInt(row['Place']) : null;
+                        const addOnCosts = totalEntries > 1 ? (totalEntries - 1) * buyIn : 0;
+                        const tournament = {
+                            id: tournamentIdCounter++,
+                            date: date.toISOString(),
+                            siteId,
+                            buyIn,
+                            discount,
+                            gtd: 0,
+                            gameType: 'NLH',
+                            format: 'Regular',
+                            structure: 'Regular',
+                            name: generateTournamentName(date, siteName, buyIn),
+                            completed: true,
+                            entries: totalEntries,
+                            finishPosition,
+                            itmCashout,
+                            bountyCashout,
+                            addOnCosts
+                        };
+                        tournaments.push(tournament);
+                    } catch (error) {
+                        console.error('Error importing tournament:', error);
+                    }
+                });
+                saveData();
+                showNotification('Tournaments imported successfully.', 'success');
+                updateUI();
             };
-            
-            const NavItem = ({ viewName, currentView, setView, children, iconName }) => {
-                const isActive = viewName === currentView;
-                const classes = `flex items-center justify-center sm:justify-start gap-x-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${isActive ? 'bg-brand-primary text-white shadow-lg' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}`;
-                return <button onClick={() => setView(viewName)} className={classes}>
-                    <Icon name={iconName} className="w-5 h-5" />
-                    <span className="hidden sm:inline">{children}</span>
-                </button>;
+            reader.readAsText(file);
+        }
+
+        function importTransactionsCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                const csvString = reader.result;
+                const data = parseCSV(csvString);
+                data.forEach(row => {
+                    try {
+                        const date = new Date(row['Date']);
+                        if (isNaN(date)) throw new Error('Invalid date');
+                        const siteName = row['Site'];
+                        const siteId = getOrCreateSiteId(siteName);
+                        const transactionType = row['Transaction'];
+                        const amount = parseCurrency(row['Amount']);
+                        const field = transactionTypeMapping[transactionType];
+                        if (!field) throw new Error('Unknown transaction type');
+                        const transaction = {
+                            id: transactionIdCounter++,
+                            date: date.toISOString(),
+                            siteId,
+                            [field]: amount
+                        };
+                        transactions.push(transaction);
+                        const site = getSiteById(siteId);
+                        if (field === 'deposit') {
+                            site.bankroll += amount;
+                        } else if (field === 'withdrawal') {
+                            site.bankroll -= amount;
+                        } else {
+                            site.bankroll += amount;
+                        }
+                    } catch (error) {
+                        console.error('Error importing transaction:', error);
+                    }
+                });
+                saveData();
+                showNotification('Transactions imported successfully.', 'success');
+                updateUI();
             };
+            reader.readAsText(file);
+        }
 
-            return (
-                <div className="min-h-screen">
-                    <nav className="bg-gray-900 shadow-md sticky top-0 z-40 border-b border-gray-700">
-                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                            <div className="flex items-center justify-between h-16">
-                                <div className="flex items-center">
-                                    <span className="text-white font-bold text-xl tracking-wider">Poker Pro</span>
-                                </div>
-                                <div className="flex items-baseline space-x-1 sm:space-x-2">
-                                    <NavItem viewName="dashboard" currentView={view} setView={setView} iconName="dashboard">Dashboard</NavItem>
-                                    <NavItem viewName="tournaments" currentView={view} setView={setView} iconName="tournaments">Tournaments</NavItem>
-                                    <NavItem viewName="transactions" currentView={view} setView={setView} iconName="transactions">Transactions</NavItem>
-                                    <NavItem viewName="completed_tournaments" currentView={view} setView={setView} iconName="completed">Results</NavItem>
-                                    <NavItem viewName="manage" currentView={view} setView={setView} iconName="manage">Manage</NavItem>
-                                </div>
-                            </div>
-                        </div>
-                    </nav>
+        function generateTournamentName(date, siteName, buyIn) {
+            const dayAbbr = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][date.getDay()];
+            return `${dayAbbr}-${siteName}-${formatCurrency(buyIn, 'INR')}`;
+        }
 
-                    <main>
-                        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                            {renderView()}
-                        </div>
-                    </main>
+        // Table Sorting
+        function sortTable(tableId, col) {
+            const table = document.getElementById(tableId);
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            const dir = table.dataset.sortDir === 'asc' ? 'desc' : 'asc';
+            table.dataset.sortDir = dir;
+            rows.sort((a, b) => {
+                let aVal = a.cells[col].textContent;
+                let bVal = b.cells[col].textContent;
+                if (!isNaN(parseFloat(aVal)) && !isNaN(parseFloat(bVal))) {
+                    aVal = parseFloat(aVal.replace(/[^\d.-]/g, ''));
+                    bVal = parseFloat(bVal.replace(/[^\d.-]/g, ''));
+                }
+                return dir === 'asc' ? aVal > bVal ? 1 : -1 : aVal < bVal ? 1 : -1;
+            });
+            rows.forEach(row => tbody.appendChild(row));
+        }
 
-                    <style>{`
-                        .input-field { @apply w-full bg-gray-700/50 text-white border border-gray-600 rounded-md shadow-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary; }
-                        .label { @apply block text-sm font-medium text-gray-300 mb-1; }
-                        .btn-primary { @apply bg-brand-primary text-white px-4 py-2 rounded-md font-semibold hover:bg-brand-secondary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-brand-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors; }
-                        .btn-secondary { @apply bg-gray-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-gray-500 transition-colors; }
-                        .btn-danger { @apply bg-danger text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-danger disabled:opacity-50 disabled:cursor-not-allowed transition-colors; }
-                        .btn-action-primary { @apply text-xs bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded; }
-                        .btn-action-secondary { @apply text-xs bg-gray-500 hover:bg-gray-600 text-white font-bold py-1 px-2 rounded; }
-                        .btn-action-danger { @apply text-xs bg-danger hover:bg-red-600 text-white font-bold py-1 px-2 rounded; }
-                        .checkbox { @apply h-4 w-4 rounded bg-gray-700 border-gray-500 text-brand-primary focus:ring-brand-secondary; }
-                    `}</style>
-                </div>
-            );
-        };
+        // Update UI
+        function updateUI() {
+            const activeSection = document.querySelector('.section.active');
+            if (activeSection.id === 'dashboard') updateDashboard();
+            else if (activeSection.id === 'tournaments') {
+                const tbody = document.querySelector('#tournaments-table tbody');
+                tbody.innerHTML = tournaments.filter(t => !t.completed).map(t => {
+                    const site = getSiteById(t.siteId);
+                    return `
+                        <tr>
+                            <td>${new Date(t.date).toLocaleString()}</td>
+                            <td>${getTournamentStatus(t)}</td>
+                            <td>${t.name}</td>
+                            <td>${site.name}</td>
+                            <td>${formatCurrency(t.buyIn, site.currency)}</td>
+                            <td>${formatCurrency(t.gtd, site.currency)}</td>
+                            <td>
+                                <button onclick="openUpdateTournamentModal(${t.id})">Update</button>
+                                <button class="delete-btn" onclick="deleteTournament(${t.id})">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } else if (activeSection.id === 'transactions') {
+                const tbody = document.querySelector('#transactions-table tbody');
+                tbody.innerHTML = transactions.map(t => {
+                    const site = getSiteById(t.siteId);
+                    return `
+                        <tr>
+                            <td>${new Date(t.date).toLocaleDateString()}</td>
+                            <td>${site.name}</td>
+                            <td class="positive">${formatCurrency(t.deposit || 0, site.currency)}</td>
+                            <td class="negative">${formatCurrency(t.withdrawal || 0, site.currency)}</td>
+                            <td class="negative">${formatCurrency(t.tax || 0, site.currency)}</td>
+                            <td class="positive">${formatCurrency(t.tournamentMoney || 0, site.currency)}</td>
+                            <td class="positive">${formatCurrency((t.instantBonus || 0) + (t.lockedBonus || 0), site.currency)}</td>
+                            <td>${formatCurrency(t.otherAdjustments || 0, site.currency)}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } else if (activeSection.id === 'results') updateResults();
+            else if (activeSection.id === 'manage') updateManage();
+        }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+        // Initial Load
+        loadData();
+        updateUI();
     </script>
 </body>
 </html>
