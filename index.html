@@ -112,6 +112,28 @@
             );
         };
 
+        const StatCard = ({ title, value, icon }) => (
+  <div className="bg-gray-900 rounded-lg p-4 flex flex-col items-start shadow border border-gray-800 min-w-[120px]">
+    <div className="flex items-center gap-2 mb-2 text-brand-primary text-2xl">{icon}</div>
+    <div className="text-lg font-bold text-white">{value}</div>
+    <div className="text-xs text-gray-400 mt-1">{title}</div>
+  </div>
+);
+
+const ProfitLossStatCard = ({ title, value, currency, subValue, subLabel }) => {
+  const color = value > 0 ? 'text-green-400' : value < 0 ? 'text-red-400' : 'text-gray-200';
+  return (
+    <div className="bg-gray-900 rounded-lg p-4 flex flex-col items-start shadow border border-gray-800 min-w-[120px]">
+      <div className="flex items-center gap-2 mb-2 text-xl">💹</div>
+      <div className={`text-lg font-bold ${color}`}>{formatCurrency(value, currency)}</div>
+      {subValue !== undefined && (
+        <div className="text-xs mt-1"><span className="font-semibold">{subValue.toFixed(1)}%</span> <span className="text-gray-400">{subLabel}</span></div>
+      )}
+      <div className="text-xs text-gray-400 mt-1">{title}</div>
+    </div>
+  );
+};
+
         const ManageView = ({ pokerSites, setPokerSites, gameTypes, setGameTypes, gameFormats, setGameFormats, gameStructures, setGameStructures, tournaments, transactions, showToast }) => {
             const [newItem, setNewItem] = useState({ type: 'pokerSites', name: '', currency: 'INR' });
             const importFileRef = useRef(null);
@@ -423,29 +445,37 @@
                                     <tr>
                                         <th className="px-2 py-2 cursor-pointer" onClick={() => requestSort('date')}>Date {getSortIndicator('date')}</th>
                                         <th className="px-2 py-2 cursor-pointer" onClick={() => requestSort('pokerSite')}>Site {getSortIndicator('pokerSite')}</th>
-                                        {txFields.map(f => (
-                                            <th key={f.name} className="px-2 py-2 cursor-pointer" onClick={() => requestSort(f.name)}>{f.icon} {getSortIndicator(f.name)}</th>
-                                        ))}
-                                        <th className="px-2 py-2">Bankroll</th>
+                                        <th className="px-2 py-2 cursor-pointer" onClick={() => requestSort('gameType')}>Game {getSortIndicator('gameType')}</th>
+                                        <th className="px-2 py-2 cursor-pointer" onClick={() => requestSort('format')}>Format {getSortIndicator('format')}</th>
+                                        <th className="px-2 py-2 cursor-pointer" onClick={() => requestSort('structure')}>Structure {getSortIndicator('structure')}</th>
+                                        <th className="px-2 py-2 cursor-pointer" onClick={() => requestSort('buyIn')}>Buy-in {getSortIndicator('buyIn')}</th>
+                                        <th className="px-2 py-2 cursor-pointer" onClick={() => requestSort('fee')}>Fee {getSortIndicator('fee')}</th>
+                                        <th className="px-2 py-2 cursor-pointer" onClick={() => requestSort('cash')}>Cash {getSortIndicator('cash')}</th>
+                                        <th className="px-2 py-2 cursor-pointer" onClick={() => requestSort('finish')}>Finish {getSortIndicator('finish')}</th>
+                                        <th className="px-2 py-2 cursor-pointer" onClick={() => requestSort('entries')}>Entries {getSortIndicator('entries')}</th>
                                         <th className="px-2 py-2">Notes</th>
                                         <th className="px-2 py-2">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-700">
                                     {filteredTx.length === 0 && (
-                                        <tr><td colSpan={txFields.length + 5} className="text-center text-gray-500 py-6">No transactions found.</td></tr>
+                                        <tr><td colSpan={13} className="text-center text-gray-500 py-6">No tournaments found.</td></tr>
                                     )}
-                                    {filteredTx.map((tx, idx) => (
-                                        <tr key={tx.id} className={idx % 2 === 0 ? 'bg-gray-900/60' : 'bg-gray-800/60 hover:bg-gray-700/60'}>
-                                            <td className="px-2 py-1 whitespace-nowrap">{tx.date}</td>
-                                            <td className="px-2 py-1 whitespace-nowrap">{tx.pokerSite}</td>
-                                            {txFields.map(f => (
-                                                <td key={f.name} className="px-2 py-1 text-right">{renderValue(tx[f.name])}</td>
-                                            ))}
-                                            <td className="px-2 py-1 text-right font-bold text-brand-primary">{formatCurrency(tx.newBankroll)}</td>
-                                            <td className="px-2 py-1 max-w-xs truncate" title={tx.notes}>{tx.notes}</td>
+                                    {filteredTx.map((t, idx) => (
+                                        <tr key={t.id} className={idx % 2 === 0 ? 'bg-gray-900/60' : 'bg-gray-800/60 hover:bg-gray-700/60'}>
+                                            <td className="px-2 py-1 whitespace-nowrap">{t.date}</td>
+                                            <td className="px-2 py-1 whitespace-nowrap">{t.pokerSite}</td>
+                                            <td className="px-2 py-1 whitespace-nowrap">{t.gameType}</td>
+                                            <td className="px-2 py-1 whitespace-nowrap">{t.format}</td>
+                                            <td className="px-2 py-1 whitespace-nowrap">{t.structure}</td>
+                                            <td className="px-2 py-1 text-right">{renderValue(t.buyIn, true)}</td>
+                                            <td className="px-2 py-1 text-right">{renderValue(t.fee, true)}</td>
+                                            <td className="px-2 py-1 text-right">{renderValue(t.cash, true)}</td>
+                                            <td className="px-2 py-1 text-right">{renderValue(t.finish)}</td>
+                                            <td className="px-2 py-1 text-right">{renderValue(t.entries)}</td>
+                                            <td className="px-2 py-1 max-w-xs truncate" title={t.notes}>{t.notes}</td>
                                             <td className="px-2 py-1">
-                                                <button onClick={() => handleDelete(tx.id)} className="text-red-400 hover:text-red-600" title="Delete"><Icon name="delete" className="w-5 h-5" /></button>
+                                                <button onClick={() => handleDelete(t.id)} className="text-red-400 hover:text-red-600" title="Delete"><Icon name="delete" className="w-5 h-5" /></button>
                                             </td>
                                         </tr>
                                     ))}
@@ -455,7 +485,7 @@
                     )}
                     {undoDelete && (
                         <div className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white px-4 py-2 rounded shadow-lg flex items-center gap-4 border border-brand-primary">
-                            <span>Transaction deleted.</span>
+                            <span>Tournament deleted.</span>
                             <button onClick={handleUndo} className="btn-primary py-1 px-3">Undo</button>
                         </div>
                     )}
@@ -467,6 +497,16 @@
             const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'descending' });
             const [selectedIds, setSelectedIds] = useState(new Set());
             const [modal, setModal] = useState({ isOpen: false, type: '', data: null });
+
+            // Add renderValue for formatting
+            const renderValue = (value, isMoney) => {
+                if (value === 0 || value === '' || value === undefined || value === null) return <span className="text-gray-500">-</span>;
+                if (isMoney) {
+                    const color = value > 0 ? 'text-green-400' : value < 0 ? 'text-red-400' : '';
+                    return <span className={color}>{formatCurrency(value)}</span>;
+                }
+                return <span>{value}</span>;
+            };
 
             const processedTournaments = useMemo(() => {
                 let items = isResultsView ? tournaments.filter(t => t.entries !== null) : tournaments;
@@ -621,26 +661,21 @@
                                     const isCompleted = t.entries !== null;
                                     let rowBgClass = index % 2 === 0 ? 'bg-gray-800' : 'bg-gray-750';
                                     let profitColor = t.profitLoss > 0 ? 'text-success' : t.profitLoss < 0 ? 'text-danger' : '';
-                                    const status = !isResultsView ? getTournamentStatus(t) : null;
 
                                     return (
                                         <tr key={t.id} className={`${rowBgClass} hover:bg-gray-700/70`}>
                                             <td className="p-2 text-center"><input type="checkbox" checked={selectedIds.has(t.id)} onChange={() => handleSelectOne(t.id)} className="checkbox"/></td>
                                             <td className="p-3 whitespace-nowrap">{t.date}</td>
-                                            {!isResultsView && <td className="p-3"><span className={`${status.color} font-medium`}>{status.status}</span></td>}
-                                            <td className="p-3 font-medium text-white">{t.name}</td>
                                             <td className="p-3">{t.pokerSite}</td>
-                                            <td className="p-3">{formatCurrency(t.buyIn, site.currency)}</td>
-                                            <td className="p-3">{formatCurrency(t.gtd, site.currency)}</td>
-                                            <td className="p-3">{t.entries || '-'}</td>
-                                            {isResultsView && (
-                                                <>
-                                                    <td className="p-3">{t.finishPosition || '-'}</td>
-                                                    <td className="p-3">{formatCurrency(t.totalCashout, site.currency)}</td>
-                                                    <td className={`p-3 font-semibold ${profitColor}`}>{formatCurrency(t.profitLoss, site.currency)}</td>
-                                                    <td className={`p-3 font-semibold ${profitColor}`}>{t.roi.toFixed(2)}%</td>
-                                                </>
-                                            )}
+                                            <td className="p-3">{t.gameType}</td>
+                                            <td className="p-3">{t.format}</td>
+                                            <td className="p-3">{t.structure}</td>
+                                            <td className="p-3 text-right">{renderValue(t.buyIn, true)}</td>
+                                            <td className="p-3 text-right">{renderValue(t.fee, true)}</td>
+                                            <td className="p-3 text-right">{renderValue(t.cash, true)}</td>
+                                            <td className="p-3 text-right">{renderValue(t.finish)}</td>
+                                            <td className="p-3 text-right">{renderValue(t.entries)}</td>
+                                            <td className="p-3 max-w-xs truncate" title={t.notes}>{t.notes}</td>
                                             <td className="p-3 flex gap-2">
                                                 {!isCompleted ? (
                                                     <button onClick={() => openModal('update', t)} className="btn-action-primary">Update</button>
@@ -715,138 +750,6 @@
                 </Modal>
             );
         };
-
-        const TournamentsView = (props) => {
-            const { tournaments, setTournaments, pokerSites, gameTypes, gameFormats, gameStructures, showToast } = props;
-            const [newMtt, setNewMtt] = useState({
-                date: getTodayDate(), time: getNowTime(), pokerSite: pokerSites[0]?.name || '', buyIn: '', gtd: '',
-                buyInDiscount: '', gameType: gameTypes[0] || '', gameFormat: gameFormats[0] || '', gameStructure: gameStructures[0] || ''
-            });
-
-            const handleInputChange = (e) => {
-                const { name, value } = e.target;
-                setNewMtt(prev => ({ ...prev, [name]: value }));
-            };
-
-            const handleAddTournament = (e) => {
-                e.preventDefault();
-                const { date, time, pokerSite, buyIn } = newMtt;
-                if (!date || !time || !pokerSite || !buyIn) {
-                    alert('Date, Time, Poker Site, and Buy-In are required.');
-                    return;
-                }
-                const site = pokerSites.find(s => s.name === pokerSite);
-                const day = new Date(date).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase();
-                const newTournament = {
-                    ...newMtt,
-                    id: Date.now(),
-                    buyIn: parseFloat(buyIn),
-                    buyInDiscount: parseFloat(newMtt.buyInDiscount) || 0,
-                    gtd: parseFloat(newMtt.gtd) || 0,
-                    name: `${day}-${pokerSite}-${formatCurrency(parseFloat(buyIn), site?.currency || 'INR')}`,
-                    entries: null, addon: 0, bountyCashout: 0, itmCashout: 0, tournamentMoneyCashout: 0, finishPosition: null
-                };
-                setTournaments(prev => [...prev, newTournament]);
-                setNewMtt({
-                    date: getTodayDate(), time: getNowTime(), pokerSite: pokerSites[0]?.name || '', buyIn: '', gtd: '',
-                    buyInDiscount: '', gameType: gameTypes[0] || '', gameFormat: gameFormats[0] || '', gameStructure: gameStructures[0] || ''
-                });
-                showToast('Tournament added successfully.');
-            };
-
-            // Redesigned form: all fields same width, grouped, with clear labels and spacing
-            return (
-                <div className="space-y-8">
-                    <h2 className="text-3xl font-bold tracking-tight">Tournaments</h2>
-                    <form onSubmit={handleAddTournament} className="bg-gray-800 p-6 rounded-lg shadow-md">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <div className="flex flex-col gap-1">
-                                <label className="label">Date *</label>
-                                <input type="date" name="date" value={newMtt.date} onChange={handleInputChange} className="input-field w-full" required/>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="label">Time *</label>
-                                <input type="time" name="time" value={newMtt.time} onChange={handleInputChange} className="input-field w-full" required/>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="label">Poker Site *</label>
-                                <select name="pokerSite" value={newMtt.pokerSite} onChange={handleInputChange} className="input-field w-full" required>
-                                    <option value="">Select Site</option>
-                                    {pokerSites.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                                </select>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="label">Buy-In *</label>
-                                <input type="number" step="0.01" name="buyIn" placeholder="5000" value={newMtt.buyIn} onChange={handleInputChange} className="input-field w-full" required/>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="label">Buy-In Discount</label>
-                                <input type="number" step="0.01" name="buyInDiscount" placeholder="0" value={newMtt.buyInDiscount} onChange={handleInputChange} className="input-field w-full"/>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="label">GTD</label>
-                                <input type="number" step="0.01" name="gtd" placeholder="1000000" value={newMtt.gtd} onChange={handleInputChange} className="input-field w-full"/>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="label">Game Type</label>
-                                <select name="gameType" value={newMtt.gameType} onChange={handleInputChange} className="input-field w-full">
-                                    {gameTypes.map(gt => <option key={gt} value={gt}>{gt}</option>)}
-                                </select>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="label">Game Format</label>
-                                <select name="gameFormat" value={newMtt.gameFormat} onChange={handleInputChange} className="input-field w-full">
-                                    {gameFormats.map(gf => <option key={gf} value={gf}>{gf}</option>)}
-                                </select>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className="label">Game Structure</label>
-                                <select name="gameStructure" value={newMtt.gameStructure} onChange={handleInputChange} className="input-field w-full">
-                                    {gameStructures.map(gs => <option key={gs} value={gs}>{gs}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                        <div className="flex justify-end pt-6">
-                            <button type="submit" className="btn-primary w-full sm:w-auto">Add Tournament</button>
-                        </div>
-                    </form>
-                    <div className="bg-gray-800 rounded-lg shadow-md overflow-hidden p-4">
-                        <h3 className="text-xl font-bold mb-4">Upcoming & In-Progress Tournaments</h3>
-                        <TournamentTable {...props} />
-                    </div>
-                </div>
-            );
-        };
-
-        const CompletedTournamentsView = (props) => (
-            <div className="space-y-6">
-                <h2 className="text-3xl font-bold tracking-tight">Completed Tournaments</h2>
-                <p className="text-gray-400">This table shows only completed tournaments. You can view, edit, or delete them here.</p>
-                <div className="bg-gray-800 rounded-lg shadow-md overflow-hidden p-4">
-                    <TournamentTable {...props} isResultsView={true} />
-                </div>
-            </div>
-        );
-
-        // --- Enhanced StatCard and ProfitLossStatCard for better looks ---
-const StatCard = ({ title, value, color = 'text-white', icon }) => (
-    <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-4 rounded-xl text-center shadow-lg border border-gray-700 flex flex-col items-center gap-2">
-        {icon && <span className="text-3xl mb-1">{icon}</span>}
-        <p className="text-xs uppercase tracking-wider text-gray-400 font-semibold">{title}</p>
-        <p className={`text-2xl font-extrabold ${color}`}>{value}</p>
-    </div>
-);
-const ProfitLossStatCard = ({ title, value, currency, subValue, subLabel }) => {
-    const color = value > 0 ? 'text-green-400' : value < 0 ? 'text-red-400' : 'text-white';
-    return (
-        <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-4 rounded-xl text-center shadow-lg border border-gray-700 flex flex-col items-center gap-2">
-            <span className="text-3xl mb-1">{value > 0 ? '▲' : value < 0 ? '▼' : '•'}</span>
-            <p className="text-xs uppercase tracking-wider text-gray-400 font-semibold">{title}</p>
-            <p className={`text-2xl font-extrabold ${color}`}>{formatCurrency(value, currency)}</p>
-            <p className={`text-xs font-semibold mt-1 ${color}`}>{subValue.toFixed(2)}{subLabel}</p>
-        </div>
-    );
-};
 
         const DashboardView = ({ tournaments, transactions, pokerSites }) => {
             const [expandedCards, setExpandedCards] = useState({});
@@ -926,6 +829,134 @@ const ProfitLossStatCard = ({ title, value, currency, subValue, subLabel }) => {
                             ))}
                         </div>
                     </div>
+                </div>
+            );
+        };
+
+        const CompletedTournamentsView = ({ tournaments, setTournaments, showToast }) => {
+            // Only show tournaments with entries (completed)
+            const completed = tournaments.filter(t => t.entries !== null && t.entries !== undefined && t.entries !== '');
+            return (
+                <div className="space-y-8">
+                    <h2 className="text-3xl font-bold tracking-tight">Results</h2>
+                    <TournamentTable tournaments={completed} setTournaments={setTournaments} isResultsView={true} showToast={showToast} />
+                </div>
+            );
+        };
+
+        const TournamentsView = ({ tournaments, setTournaments, pokerSites, gameTypes, gameFormats, gameStructures, showToast }) => {
+            const [tab, setTab] = useState('add');
+            const [newT, setNewT] = useState({
+                date: getTodayDate(),
+                name: '',
+                pokerSite: pokerSites[0]?.name || '',
+                gameType: gameTypes[0] || '',
+                format: gameFormats[0] || '',
+                structure: gameStructures[0] || '',
+                buyIn: '',
+                gtd: '',
+                entries: '',
+                notes: ''
+            });
+            const handleInputChange = (e) => {
+                const { name, value } = e.target;
+                setNewT(prev => ({ ...prev, [name]: value }));
+            };
+            const handleAddTournament = (e) => {
+                e.preventDefault();
+                if (!newT.date || !newT.name || !newT.pokerSite) {
+                    alert('Date, Name, and Poker Site are required.');
+                    return;
+                }
+                setTournaments(prev => [
+                    ...prev,
+                    {
+                        id: Date.now(),
+                        ...newT,
+                        buyIn: parseFloat(newT.buyIn) || 0,
+                        gtd: parseFloat(newT.gtd) || 0,
+                        entries: newT.entries ? parseInt(newT.entries) : null
+                    }
+                ]);
+                setNewT({
+                    date: getTodayDate(),
+                    name: '',
+                    pokerSite: pokerSites[0]?.name || '',
+                    gameType: gameTypes[0] || '',
+                    format: gameFormats[0] || '',
+                    structure: gameStructures[0] || '',
+                    buyIn: '',
+                    gtd: '',
+                    entries: '',
+                    notes: ''
+                });
+                showToast('Tournament added successfully.');
+            };
+            return (
+                <div className="space-y-8">
+                    <h2 className="text-3xl font-bold tracking-tight">Tournaments</h2>
+                    <div className="flex gap-2 mb-4 border-b border-gray-700 sticky top-16 z-30 bg-gray-900/90 backdrop-blur px-2 rounded-t-lg">
+                        <button onClick={() => setTab('add')} className={`px-4 py-2 font-semibold rounded-t ${tab === 'add' ? 'bg-brand-primary text-gray-900 shadow' : 'text-gray-300 hover:bg-gray-800'}`}>Add Tournament</button>
+                        <button onClick={() => setTab('all')} className={`px-4 py-2 font-semibold rounded-t ${tab === 'all' ? 'bg-brand-primary text-gray-900 shadow' : 'text-gray-300 hover:bg-gray-800'}`}>All Tournaments</button>
+                    </div>
+                    {tab === 'add' && (
+                        <form onSubmit={handleAddTournament} className="bg-gray-800 p-6 rounded-lg shadow-md grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="flex flex-col gap-1">
+                                <label className="label">Date *</label>
+                                <input type="date" name="date" value={newT.date} onChange={handleInputChange} className="input-field w-full" required />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="label">Name *</label>
+                                <input type="text" name="name" value={newT.name} onChange={handleInputChange} className="input-field w-full" required />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="label">Poker Site *</label>
+                                <select name="pokerSite" value={newT.pokerSite} onChange={handleInputChange} className="input-field w-full" required>
+                                    {pokerSites.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                                </select>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="label">Game Type</label>
+                                <select name="gameType" value={newT.gameType} onChange={handleInputChange} className="input-field w-full">
+                                    {gameTypes.map((g, i) => <option key={i} value={g}>{g}</option>)}
+                                </select>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="label">Format</label>
+                                <select name="format" value={newT.format} onChange={handleInputChange} className="input-field w-full">
+                                    {gameFormats.map((f, i) => <option key={i} value={f}>{f}</option>)}
+                                </select>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="label">Structure</label>
+                                <select name="structure" value={newT.structure} onChange={handleInputChange} className="input-field w-full">
+                                    {gameStructures.map((s, i) => <option key={i} value={s}>{s}</option>)}
+                                </select>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="label">Buy-in</label>
+                                <input type="number" step="0.01" name="buyIn" value={newT.buyIn} onChange={handleInputChange} className="input-field w-full" />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="label">GTD</label>
+                                <input type="number" step="0.01" name="gtd" value={newT.gtd} onChange={handleInputChange} className="input-field w-full" />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className="label">Entries</label>
+                                <input type="number" name="entries" value={newT.entries} onChange={handleInputChange} className="input-field w-full" />
+                            </div>
+                            <div className="flex flex-col gap-1 md:col-span-2 lg:col-span-3">
+                                <label className="label">Notes</label>
+                                <input type="text" name="notes" value={newT.notes} onChange={handleInputChange} className="input-field w-full" />
+                            </div>
+                            <div className="flex justify-end md:col-span-2 lg:col-span-3 pt-2">
+                                <button type="submit" className="btn-primary w-full sm:w-auto">Add Tournament</button>
+                            </div>
+                        </form>
+                    )}
+                    {tab === 'all' && (
+                        <TournamentTable tournaments={tournaments} setTournaments={setTournaments} showToast={showToast} />
+                    )}
                 </div>
             );
         };
